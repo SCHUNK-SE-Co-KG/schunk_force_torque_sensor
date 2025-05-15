@@ -34,3 +34,13 @@ def test_driver_implements_connect_and_disconnect():
     for _ in range(3):
         assert driver.connect(host="192.168.0.100", port=82)
         assert driver.disconnect()
+
+    # Reject invalid addresses
+    invalid_addresses = [
+        {"host": "1.2.3.4", "port": 1},
+        {"host": "1.2.3.4", "port": 0},
+        {"host": "0.0.0.0", "port": 8000},
+        {"host": "0.0.0.0", "port": "not-ok"},
+    ]
+    for address in invalid_addresses:
+        assert not driver.connect(**address)
