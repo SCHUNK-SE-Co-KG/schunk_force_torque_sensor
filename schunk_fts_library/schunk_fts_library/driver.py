@@ -1,5 +1,6 @@
 import socket
 from socket import socket as Socket
+import struct
 
 
 class Driver(object):
@@ -10,6 +11,7 @@ class Driver(object):
         self.host: str = "192.168.0.100"
         self.port: int = 82
         self.connected: bool = False
+        self.sync_bytes: int = int("FFFF", 16)
 
     def connect(self, host: str, port: int) -> bool:
         if self.connected:
@@ -25,3 +27,14 @@ class Driver(object):
     def disconnect(self) -> bool:
         self.socket.close()
         return True
+
+    def get_parameter(self, index: str, subindex: str = "00") -> bytearray:
+        cmd_id = int("F0", 16)
+        payload = struct.pack("<BHB", cmd_id, int(index, 16), int(subindex, 16))
+        packet_counter = 1
+        message = (
+            struct.pack("<HHH", self.sync_bytes, packet_counter, len(payload)) + payload
+        )
+        self.socket.sendall(message)
+        response = bytearray(self.socket.recv(1024))
+        return response
