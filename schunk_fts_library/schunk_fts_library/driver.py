@@ -1,7 +1,11 @@
-from .utility import Response
+from .utility import (
+    SetParameterRequest,
+    SetParameterResponse,
+    GetParameterRequest,
+    GetParameterResponse,
+)
 import socket
 from socket import socket as Socket
-import struct
 
 
 class Driver(object):
@@ -12,7 +16,6 @@ class Driver(object):
         self.host: str = "192.168.0.100"
         self.port: int = 82
         self.connected: bool = False
-        self.sync_bytes: int = int("FFFF", 16)
 
     def connect(self, host: str, port: int) -> bool:
         if self.connected:
@@ -29,30 +32,29 @@ class Driver(object):
         self.socket.close()
         return True
 
-    def get_parameter(self, index: str, subindex: str = "00") -> Response:
-        cmd_id = int("F0", 16)
-        payload = struct.pack("<BHB", cmd_id, int(index, 16), int(subindex, 16))
-        packet_counter = 1
-        message = (
-            struct.pack("<HHH", self.sync_bytes, packet_counter, len(payload)) + payload
-        )
-        self.socket.sendall(message)
+    def get_parameter(self, index: str, subindex: str = "00") -> GetParameterResponse:
+        req = GetParameterRequest()
+        req.command_id = "f0"
+        req.param_index = index
+        req.param_subindex = subindex
+        msg = req.to_bytes()
+        self.socket.sendall(msg)
         data = bytearray(self.socket.recv(1024))
-        response = Response()
+        response = GetParameterResponse()
         response.from_bytes(data)
         return response
 
     def set_parameter(
         self, value: bytearray, index: str, subindex: str = "00"
-    ) -> Response:
-        cmd_id = int("F1", 16)
-        payload = struct.pack("<BHB", cmd_id, int(index, 16), int(subindex, 16)) + value
-        packet_counter = 1
-        message = (
-            struct.pack("<HHH", self.sync_bytes, packet_counter, len(payload)) + payload
-        )
-        self.socket.sendall(message)
+    ) -> SetParameterResponse:
+        req = SetParameterRequest()
+        req.command_id = "f1"
+        req.param_index = index
+        req.param_subindex = subindex
+        req.param_value = value
+        msg = req.to_bytes()
+        self.socket.sendall(msg)
         data = bytearray(self.socket.recv(1024))
-        response = Response()
+        response = SetParameterResponse()
         response.from_bytes(data)
         return response
