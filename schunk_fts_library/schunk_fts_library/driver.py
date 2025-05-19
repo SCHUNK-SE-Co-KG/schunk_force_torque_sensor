@@ -1,3 +1,4 @@
+from .utility import Response
 import socket
 from socket import socket as Socket
 import struct
@@ -28,7 +29,7 @@ class Driver(object):
         self.socket.close()
         return True
 
-    def get_parameter(self, index: str, subindex: str = "00") -> bytearray:
+    def get_parameter(self, index: str, subindex: str = "00") -> Response:
         cmd_id = int("F0", 16)
         payload = struct.pack("<BHB", cmd_id, int(index, 16), int(subindex, 16))
         packet_counter = 1
@@ -36,5 +37,22 @@ class Driver(object):
             struct.pack("<HHH", self.sync_bytes, packet_counter, len(payload)) + payload
         )
         self.socket.sendall(message)
-        response = bytearray(self.socket.recv(1024))
+        data = bytearray(self.socket.recv(1024))
+        response = Response()
+        response.from_bytes(data)
+        return response
+
+    def set_parameter(
+        self, value: bytearray, index: str, subindex: str = "00"
+    ) -> Response:
+        cmd_id = int("F1", 16)
+        payload = struct.pack("<BHB", cmd_id, int(index, 16), int(subindex, 16)) + value
+        packet_counter = 1
+        message = (
+            struct.pack("<HHH", self.sync_bytes, packet_counter, len(payload)) + payload
+        )
+        self.socket.sendall(message)
+        data = bytearray(self.socket.recv(1024))
+        response = Response()
+        response.from_bytes(data)
         return response
