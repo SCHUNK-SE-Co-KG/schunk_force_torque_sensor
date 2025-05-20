@@ -20,7 +20,7 @@ class Message(object):
 
     def to_bytes(self) -> bytearray:
         payload = bytearray()
-        for field in getattr(self, "__field_order__", []):
+        for field in getattr(self, "__fields__", []):
             value = getattr(self, field)
             little_endian_bytes = bytes.fromhex(value)[::-1]
             payload.extend(little_endian_bytes)
@@ -35,13 +35,12 @@ class Message(object):
 
 
 class GetParameterRequest(Message):
-    __field_order__ = ["command_id", "param_index", "param_subindex"]
+    __fields__ = ["command_id", "param_index", "param_subindex"]
 
     def __init__(self) -> None:
         super().__init__()
-        self.command_id: str = ""
-        self.param_index: str = ""
-        self.param_subindex: str = ""
+        for field in self.__fields__:
+            setattr(self, field, "")
 
     def from_bytes(self, data: bytearray) -> bool:
         self.sync = data[0:2].hex()
@@ -54,7 +53,7 @@ class GetParameterRequest(Message):
 
 
 class GetParameterResponse(Message):
-    __field_order__ = [
+    __fields__ = [
         "command_id",
         "error_code",
         "param_index",
@@ -64,11 +63,8 @@ class GetParameterResponse(Message):
 
     def __init__(self) -> None:
         super().__init__()
-        self.command_id: str = ""
-        self.error_code: str = ""
-        self.param_index: str = ""
-        self.param_subindex: str = ""
-        self.param_value: str = ""
+        for field in self.__fields__:
+            setattr(self, field, "")
 
     def from_bytes(self, data: bytearray) -> bool:
         self.sync = data[0:2].hex()
@@ -83,14 +79,12 @@ class GetParameterResponse(Message):
 
 
 class SetParameterRequest(Message):
-    __field_order__ = ["command_id", "param_index", "param_subindex", "param_value"]
+    __fields__ = ["command_id", "param_index", "param_subindex", "param_value"]
 
     def __init__(self) -> None:
         super().__init__()
-        self.command_id: str = ""
-        self.param_index: str = ""
-        self.param_subindex: str = ""
-        self.param_value: str = ""
+        for field in self.__fields__:
+            setattr(self, field, "")
 
     def from_bytes(self, data: bytearray) -> bool:
         self.sync = data[0:2].hex()
@@ -104,14 +98,12 @@ class SetParameterRequest(Message):
 
 
 class SetParameterResponse(Message):
-    __field_order__ = ["command_id", "error_code", "param_index", "param_subindex"]
+    __fields__ = ["command_id", "error_code", "param_index", "param_subindex"]
 
     def __init__(self) -> None:
         super().__init__()
-        self.command_id: str = ""
-        self.error_code: str = ""
-        self.param_index: str = ""
-        self.param_subindex: str = ""
+        for field in self.__fields__:
+            setattr(self, field, "")
 
     def from_bytes(self, data: bytearray) -> bool:
         self.sync = data[0:2].hex()
