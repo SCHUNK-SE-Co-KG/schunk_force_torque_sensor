@@ -7,22 +7,16 @@ from schunk_fts_library.utility import (
 )
 
 
-def test_parameter_message_has_expected_fields():
+def test_message_has_expected_fields():
     message = Message()
     assert message.sync == "ffff"
     assert message.counter == 0
-    assert message.payload_len == 0
-    assert message.command_id == ""
-    assert message.error_code == ""
-    assert message.param_index == ""
-    assert message.param_subindex == ""
-    assert message.param_value == bytearray()
 
 
-def test_message_offers_str_method():
-    msg = Message()
+def test_messages_are_printable():
 
     # Check if all variables occur in the output
+    msg = GetParameterRequest()
     output = str(msg)
     for entry in msg.__dict__.keys():
         assert entry in output
@@ -39,7 +33,6 @@ def test_get_parameter_message():
     data = msg.to_bytes()
     other = GetParameterRequest()
     other.from_bytes(data)
-
     assert msg == other
 
     # Response
@@ -48,13 +41,11 @@ def test_get_parameter_message():
     msg.error_code = "01"
     msg.param_index = "1234"
     msg.param_subindex = "02"
-    msg.param_value = bytearray(bytes.fromhex("42"))
+    msg.param_value = "45"
 
     data = msg.to_bytes()
     other = GetParameterResponse()
     other.from_bytes(data)
-    print(f"msg: {msg}")
-    print(f"other: {other}")
     assert msg == other
 
 
@@ -65,14 +56,11 @@ def test_set_parameter_message():
     msg.command_id = "f1"
     msg.param_index = "1234"
     msg.param_subindex = "02"
-    msg.param_value = bytearray(bytes.fromhex("42"))
+    msg.param_value = "42"
 
     data = msg.to_bytes()
     other = SetParameterRequest()
     other.from_bytes(data)
-
-    print(f"msg: {msg}")
-    print(f"other: {other}")
     assert msg == other
 
     # Response

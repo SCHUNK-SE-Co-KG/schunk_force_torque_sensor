@@ -5,12 +5,6 @@ class Message(object):
     def __init__(self) -> None:
         self.sync: str = "ffff"
         self.counter: int = 0
-        self.payload_len: int = 0
-        self.command_id: str = ""
-        self.error_code: str = ""
-        self.param_index: str = ""
-        self.param_subindex: str = ""
-        self.param_value: bytearray = bytearray()
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -24,14 +18,12 @@ class Message(object):
         output = output[:-2]
         return output
 
-
-class GetParameterRequest(Message):
     def to_bytes(self) -> bytearray:
-        payload = (
-            bytes.fromhex(self.command_id)
-            + bytes.fromhex(self.param_index)
-            + bytes.fromhex(self.param_subindex)
-        )
+        payload = bytearray()
+        for field in getattr(self, "__field_order__", []):
+            value = getattr(self, field)
+            little_endian_bytes = bytes.fromhex(value)[::-1]
+            payload.extend(little_endian_bytes)
         self.payload_len = len(payload)
         data = bytearray(
             bytes.fromhex(self.sync)
@@ -41,33 +33,42 @@ class GetParameterRequest(Message):
         )
         return data
 
+
+class GetParameterRequest(Message):
+    __field_order__ = ["command_id", "param_index", "param_subindex"]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.command_id: str = ""
+        self.param_index: str = ""
+        self.param_subindex: str = ""
+
     def from_bytes(self, data: bytearray) -> bool:
         self.sync = data[0:2].hex()
         self.counter = struct.unpack("H", data[2:4])[0]
         self.payload_len = struct.unpack("H", data[4:6])[0]
         self.command_id = data[6:7].hex()
-        self.param_index = data[7:9].hex()
+        self.param_index = data[7:9][::-1].hex()
         self.param_subindex = data[9:10].hex()
         return True
 
 
 class GetParameterResponse(Message):
-    def to_bytes(self) -> bytearray:
-        payload = (
-            bytes.fromhex(self.command_id)
-            + bytes.fromhex(self.error_code)
-            + bytes.fromhex(self.param_index)
-            + bytes.fromhex(self.param_subindex)
-            + self.param_value
-        )
-        self.payload_len = len(payload)
-        data = bytearray(
-            bytes.fromhex(self.sync)
-            + struct.pack("<H", self.counter)
-            + struct.pack("<H", self.payload_len)
-            + payload
-        )
-        return data
+    __field_order__ = [
+        "command_id",
+        "error_code",
+        "param_index",
+        "param_subindex",
+        "param_value",
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.command_id: str = ""
+        self.error_code: str = ""
+        self.param_index: str = ""
+        self.param_subindex: str = ""
+        self.param_value: str = ""
 
     def from_bytes(self, data: bytearray) -> bool:
         self.sync = data[0:2].hex()
@@ -75,56 +76,42 @@ class GetParameterResponse(Message):
         self.payload_len = struct.unpack("H", data[4:6])[0]
         self.command_id = data[6:7].hex()
         self.error_code = data[7:8].hex()
-        self.param_index = data[8:10].hex()
+        self.param_index = data[8:10][::-1].hex()
         self.param_subindex = data[10:11].hex()
-        self.param_value = data[11:]
+        self.param_value = data[11:].hex()
         return True
 
 
 class SetParameterRequest(Message):
-    def to_bytes(self) -> bytearray:
-        payload = (
-            bytes.fromhex(self.command_id)
-            + bytes.fromhex(self.param_index)
-            + bytes.fromhex(self.param_subindex)
-            + self.param_value
-        )
-        self.payload_len = len(payload)
-        data = bytearray(
-            bytes.fromhex(self.sync)
-            + struct.pack("<H", self.counter)
-            + struct.pack("<H", self.payload_len)
-            + payload
-        )
-        return data
+    __field_order__ = ["command_id", "param_index", "param_subindex", "param_value"]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.command_id: str = ""
+        self.param_index: str = ""
+        self.param_subindex: str = ""
+        self.param_value: str = ""
 
     def from_bytes(self, data: bytearray) -> bool:
         self.sync = data[0:2].hex()
         self.counter = struct.unpack("H", data[2:4])[0]
         self.payload_len = struct.unpack("H", data[4:6])[0]
         self.command_id = data[6:7].hex()
-        self.param_index = data[7:9].hex()
+        self.param_index = data[7:9][::-1].hex()
         self.param_subindex = data[9:10].hex()
-        self.param_value = data[10:]
+        self.param_value = data[10:].hex()
         return True
 
 
 class SetParameterResponse(Message):
-    def to_bytes(self) -> bytearray:
-        payload = (
-            bytes.fromhex(self.command_id)
-            + bytes.fromhex(self.error_code)
-            + bytes.fromhex(self.param_index)
-            + bytes.fromhex(self.param_subindex)
-        )
-        self.payload_len = len(payload)
-        data = bytearray(
-            bytes.fromhex(self.sync)
-            + struct.pack("<H", self.counter)
-            + struct.pack("<H", self.payload_len)
-            + payload
-        )
-        return data
+    __field_order__ = ["command_id", "error_code", "param_index", "param_subindex"]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.command_id: str = ""
+        self.error_code: str = ""
+        self.param_index: str = ""
+        self.param_subindex: str = ""
 
     def from_bytes(self, data: bytearray) -> bool:
         self.sync = data[0:2].hex()
@@ -132,6 +119,6 @@ class SetParameterResponse(Message):
         self.payload_len = struct.unpack("H", data[4:6])[0]
         self.command_id = data[6:7].hex()
         self.error_code = data[7:8].hex()
-        self.param_index = data[8:10].hex()
+        self.param_index = data[8:10][::-1].hex()
         self.param_subindex = data[10:11].hex()
         return True

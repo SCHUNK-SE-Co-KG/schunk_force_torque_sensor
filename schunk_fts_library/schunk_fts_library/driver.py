@@ -45,7 +45,7 @@ class Driver(object):
         return response
 
     def set_parameter(
-        self, value: bytearray, index: str, subindex: str = "00"
+        self, value: str, index: str, subindex: str = "00"
     ) -> SetParameterResponse:
         req = SetParameterRequest()
         req.command_id = "f1"
