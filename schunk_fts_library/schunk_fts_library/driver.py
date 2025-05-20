@@ -3,6 +3,8 @@ from .utility import (
     SetParameterResponse,
     GetParameterRequest,
     GetParameterResponse,
+    CommandRequest,
+    CommandResponse,
 )
 import socket
 from socket import socket as Socket
@@ -56,5 +58,15 @@ class Driver(object):
         self.socket.sendall(msg)
         data = bytearray(self.socket.recv(1024))
         response = SetParameterResponse()
+        response.from_bytes(data)
+        return response
+
+    def run_command(self, command: str) -> CommandResponse:
+        req = CommandRequest()
+        req.command_id = command
+        msg = req.to_bytes()
+        self.socket.sendall(msg)
+        data = bytearray(self.socket.recv(1024))
+        response = CommandResponse()
         response.from_bytes(data)
         return response

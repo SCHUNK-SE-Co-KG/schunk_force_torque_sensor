@@ -1,9 +1,11 @@
 from schunk_fts_library.utility import (
     Message,
-    SetParameterRequest,
-    SetParameterResponse,
     GetParameterRequest,
     GetParameterResponse,
+    SetParameterRequest,
+    SetParameterResponse,
+    CommandRequest,
+    CommandResponse,
 )
 
 
@@ -72,5 +74,25 @@ def test_set_parameter_message():
 
     data = msg.to_bytes()
     other = SetParameterResponse()
+    other.from_bytes(data)
+    assert msg == other
+
+
+def test_command_message():
+
+    # Request
+    msg = CommandRequest()
+    msg.command_id = "10"
+    data = msg.to_bytes()
+    other = CommandRequest()
+    other.from_bytes(data)
+    assert msg == other
+
+    # Response
+    msg = CommandResponse()
+    msg.command_id = "10"
+    msg.error_code = "05"
+    data = msg.to_bytes()
+    other = CommandResponse()
     other.from_bytes(data)
     assert msg == other

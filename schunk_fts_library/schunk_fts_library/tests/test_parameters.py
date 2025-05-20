@@ -5,8 +5,8 @@ def test_driver_offers_getting_parameters():
     driver = Driver()
     driver.connect(host="192.168.0.100", port=82)
 
-    param = "100a"  # current user level
-    expected_value = "00"
+    param = "1031"
+    expected_value = "01"
     response = driver.get_parameter(index=param)
     print(f"response: {response}")
     assert response.error_code == "00"
