@@ -1,0 +1,8 @@
+[package]
+name = "schunk_fts_dummy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+bytes = "1"

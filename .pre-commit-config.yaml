@@ -34,3 +34,17 @@ repos:
     -   id: mypy
         entry: mypy .
         pass_filenames: false
+
+  # Rust
+  - repo: https://github.com/berquist/pre-commit-rust
+    rev: '1932689be85e79c8d8e019e8c96c093ebb31efda'  # v2.1.1
+    hooks:
+      - id: cargo-fmt
+        args: ["--manifest-path=schunk_fts_dummy/Cargo.toml"]
+        pass_filenames: false
+      - id: cargo-check
+        args: ["--manifest-path=schunk_fts_dummy/Cargo.toml"]
+      - id: cargo-clippy
+        args: ["--manifest-path=schunk_fts_dummy/Cargo.toml"]
+      - id: cargo-test
+        args: ["--manifest-path=schunk_fts_dummy/Cargo.toml"]

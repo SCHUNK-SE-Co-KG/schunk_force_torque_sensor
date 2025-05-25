@@ -4,3 +4,9 @@
 
 # Ignore pip install artifacts
 *.egg-info/
+
+# Temporary folders
+*tmp/
+
+# Rust build artifacts
+*target
