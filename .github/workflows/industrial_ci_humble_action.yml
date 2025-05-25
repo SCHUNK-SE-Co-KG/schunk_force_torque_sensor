@@ -12,6 +12,7 @@ jobs:
   industrial_ci:
     env:
       BEFORE_BUILD_TARGET_WORKSPACE: '.github/script/install_dependencies.sh'
+      BEFORE_RUN_TARGET_TEST: '.github/script/start_dummy.sh'
     strategy:
       fail-fast: false
       matrix:
