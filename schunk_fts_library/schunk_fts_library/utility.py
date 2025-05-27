@@ -1,4 +1,37 @@
 import struct
+import socket
+from socket import socket as Socket
+
+
+class Connection(object):
+
+    def __init__(self, host: str, port: int) -> None:
+        self.host = host
+        self.port = port
+        self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.settimeout(1)
+        self.is_connected: bool = False
+
+    def __enter__(self) -> "Connection":
+        try:
+            self.socket.connect((self.host, self.port))
+            self.is_connected = True
+        except socket.gaierror:
+            print("Address-related error: invalid hostname or IP.")
+        except socket.timeout:
+            print("Connection timed out.")
+        except ConnectionRefusedError:
+            print("Connection was refused by the server.")
+        except OSError as e:
+            print(f"General socket error: {e}")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.socket.close()
 
 
 class Message(object):
