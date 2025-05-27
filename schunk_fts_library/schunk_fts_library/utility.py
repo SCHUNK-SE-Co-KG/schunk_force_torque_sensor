@@ -12,6 +12,9 @@ class Connection(object):
         self.socket.settimeout(1)
         self.is_connected: bool = False
 
+    def __bool__(self) -> bool:
+        return self.is_connected
+
     def __enter__(self) -> "Connection":
         try:
             self.socket.connect((self.host, self.port))
@@ -31,6 +34,7 @@ class Connection(object):
             self.socket.shutdown(socket.SHUT_RDWR)
         except OSError:
             pass
+        self.is_connected = False
         self.socket.close()
 
 

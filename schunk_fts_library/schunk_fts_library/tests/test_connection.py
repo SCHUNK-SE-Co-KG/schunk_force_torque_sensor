@@ -9,8 +9,9 @@ def test_connection_has_expected_fields():
 
 
 def test_connection_succeeds_with_valid_arguments():
-    with Connection(host="0.0.0.0", port=8082) as connection:
-        assert connection.is_connected
+    for _ in range(3):
+        with Connection(host="0.0.0.0", port=8082) as connection:
+            assert connection.is_connected
 
 
 def test_connection_handles_invalid_arguments():
@@ -33,3 +34,25 @@ def test_connection_closes_socket_on_exit():
     # Repeated closing will call __exit__ again
     with connection:
         pass
+
+
+def test_connection_supports_bool_checks():
+
+    # Successfully connected
+    with Connection(host="0.0.0.0", port=8082) as connection:
+        if not connection:
+            assert False
+
+    # Not connected
+    with Connection(host="10.255.255.1", port=8082) as connection:
+        if connection:
+            assert False
+
+    # Without context manager
+    connection = Connection(host="0.0.0.0", port=8082)
+    assert not connection
+
+    # With context manager
+    connection = Connection(host="0.0.0.0", port=8082)
+    with connection:
+        assert connection  # should succeed on first run
