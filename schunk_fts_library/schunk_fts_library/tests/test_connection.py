@@ -31,9 +31,10 @@ def test_connection_closes_socket_on_exit():
         pass
     assert connection.socket.fileno() == -1  # means closed
 
-    # Repeated closing will call __exit__ again
-    with connection:
-        pass
+    # Repeated closing
+    for _ in range(3):
+        with connection:
+            pass
 
 
 def test_connection_supports_bool_checks():
@@ -56,3 +57,19 @@ def test_connection_supports_bool_checks():
     connection = Connection(host="0.0.0.0", port=8082)
     with connection:
         assert connection  # should succeed on first run
+
+
+def test_connection_creates_new_socket_when_reset():
+    connection = Connection(host="0.0.0.0", port=8082)
+    before = connection.socket
+    connection._reset_socket()
+    after = connection.socket
+    assert after != before
+
+
+def test_connection_supports_reusing_the_context_manager():
+    connection = Connection(host="0.0.0.0", port=8082)
+
+    for _ in range(5):
+        with connection:
+            assert connection

@@ -8,8 +8,7 @@ class Connection(object):
     def __init__(self, host: str, port: int) -> None:
         self.host = host
         self.port = port
-        self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(1)
+        self._reset_socket()
         self.is_connected: bool = False
 
     def __bool__(self) -> bool:
@@ -17,6 +16,8 @@ class Connection(object):
 
     def __enter__(self) -> "Connection":
         try:
+            if self.socket.fileno() == -1:  # already closed once
+                self._reset_socket()
             self.socket.connect((self.host, self.port))
             self.is_connected = True
         except socket.gaierror:
@@ -36,6 +37,10 @@ class Connection(object):
             pass
         self.is_connected = False
         self.socket.close()
+
+    def _reset_socket(self) -> None:
+        self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.settimeout(1)
 
 
 class Message(object):
