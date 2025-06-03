@@ -40,7 +40,8 @@ class Connection(object):
 
     def _reset_socket(self) -> None:
         self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(1)
+        self.socket.settimeout(2)
+        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
 
 class Message(object):

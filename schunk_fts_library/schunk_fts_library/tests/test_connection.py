@@ -1,7 +1,7 @@
 from schunk_fts_library.utility import Connection
 
-HOST = "0.0.0.0"
-PORT = 8082
+HOST = "192.168.0.100"  # "0.0.0.0"
+PORT = 82  # 8082
 
 
 def test_connection_has_expected_fields():
@@ -59,7 +59,7 @@ def test_connection_supports_bool_checks():
     # With context manager
     connection = Connection(host=HOST, port=PORT)
     with connection:
-        assert connection  # should succeed on first run
+        assert connection
 
 
 def test_connection_creates_new_socket_when_reset():
