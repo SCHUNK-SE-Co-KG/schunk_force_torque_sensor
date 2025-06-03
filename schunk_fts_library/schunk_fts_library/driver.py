@@ -53,10 +53,13 @@ class Driver(object):
     def run_command(self, command: str) -> CommandResponse:
         req = CommandRequest()
         req.command_id = command
-        # msg = req.to_bytes()
-        # self.socket.sendall(msg)
-        # data = bytearray(self.socket.recv(1024))
-        data = bytearray()
+        msg = req.to_bytes()
+
+        with self.connection as sensor:
+            if sensor:
+                sensor.send(msg)
+                data = sensor.receive()
+
         response = CommandResponse()
         response.from_bytes(data)
         return response
