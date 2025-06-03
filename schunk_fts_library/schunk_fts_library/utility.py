@@ -1,4 +1,68 @@
 import struct
+import socket
+from socket import socket as Socket
+
+
+class Connection(object):
+
+    def __init__(self, host: str, port: int) -> None:
+        self.host = host
+        self.port = port
+        self._reset_socket()
+        self.is_connected: bool = False
+
+    def send(self, data: bytearray) -> bool:
+        if not self.is_connected:
+            return False
+        try:
+            self.socket.sendall(data)
+            return True
+        except socket.timeout:
+            print("Send: Timed out")
+        except (BrokenPipeError, ConnectionResetError) as e:
+            print(f"Send: Connection error: {e}")
+        except OSError as e:
+            print(f"Send: General socket error: {e}")
+        return False
+
+    def receive(self) -> bytearray:
+        data = bytearray()
+        if not self.is_connected:
+            return data
+        data = bytearray(self.socket.recv(1024))
+        return data
+
+    def __bool__(self) -> bool:
+        return self.is_connected
+
+    def __enter__(self) -> "Connection":
+        try:
+            if self.socket.fileno() == -1:  # already closed once
+                self._reset_socket()
+            self.socket.connect((self.host, self.port))
+            self.is_connected = True
+        except socket.gaierror as e:
+            print(f"Connect: Address-related error: {e}")
+        except socket.timeout:
+            print("Connect: Timed out.")
+        except ConnectionRefusedError as e:
+            print(f"Connect: Refused by the server: {e}")
+        except OSError as e:
+            print(f"Connect: General socket error: {e}")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self.is_connected = False
+        self.socket.close()
+
+    def _reset_socket(self) -> None:
+        self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.settimeout(2)
+        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
 
 class Message(object):

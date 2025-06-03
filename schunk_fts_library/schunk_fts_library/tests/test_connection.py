@@ -1,46 +1,112 @@
-from schunk_fts_library.driver import Driver
+from schunk_fts_library.utility import Connection
+
+HOST = "192.168.0.100"  # "0.0.0.0"
+PORT = 82  # 8082
 
 
-def test_driver_initializes_as_expected():
-    driver = Driver()
-    assert driver.host == "192.168.0.100"
-    assert driver.port == 82
-    assert driver.socket is not None
-    assert not driver.connected
+def test_connection_has_expected_fields():
+    with Connection(host=HOST, port=PORT) as connection:
+        assert connection.host == HOST
+        assert connection.port == PORT
+        assert connection.socket is not None
 
 
-def test_driver_implements_connect_and_disconnect():
-    driver = Driver()
-
-    assert driver.connect(host="192.168.0.100", port=82)
-
-    # Repeated connect to same address
+def test_connection_succeeds_with_valid_arguments():
     for _ in range(3):
-        assert driver.connect(host="192.168.0.100", port=82)
+        with Connection(host=HOST, port=PORT) as connection:
+            assert connection.is_connected
 
-    # Reconnect to other address without disconnect
-    other_host = "0.0.0.0"
-    assert not driver.connect(host=other_host, port=82)
 
-    # Regular disconnect
-    assert driver.connect(host="192.168.0.100", port=82)
-    assert driver.disconnect()
-
-    # Repeated disconnects
-    for _ in range(3):
-        assert driver.disconnect()
-
-    # Several complete runs
-    for _ in range(3):
-        assert driver.connect(host="192.168.0.100", port=82)
-        assert driver.disconnect()
-
-    # Reject invalid addresses
-    invalid_addresses = [
-        {"host": "1.2.3.4", "port": 1},
-        {"host": "1.2.3.4", "port": 0},
-        {"host": "0.0.0.0", "port": 8000},
-        {"host": "0.0.0.0", "port": "not-ok"},
+def test_connection_handles_invalid_arguments():
+    invalid_args = [
+        {"host": "10.255.255.1", "port": 8082},
+        {"host": "0.1.2.3", "port": 80},
+        {"host": "0.0.0.0", "port": 80},
     ]
-    for address in invalid_addresses:
-        assert not driver.connect(**address)
+    for arg in invalid_args:
+        with Connection(host=arg["host"], port=arg["port"]) as connection:
+            assert not connection.is_connected
+
+
+def test_connection_closes_socket_on_exit():
+    connection = Connection(host=HOST, port=PORT)
+    with connection:
+        pass
+    assert connection.socket.fileno() == -1  # means closed
+
+    # Repeated closing
+    for _ in range(3):
+        with connection:
+            pass
+
+
+def test_connection_supports_bool_checks():
+
+    # Successfully connected
+    with Connection(host=HOST, port=PORT) as connection:
+        if not connection:
+            assert False
+
+    # Not connected
+    with Connection(host="10.255.255.1", port=PORT) as connection:
+        if connection:
+            assert False
+
+    # Without context manager
+    connection = Connection(host=HOST, port=PORT)
+    assert not connection
+
+    # With context manager
+    connection = Connection(host=HOST, port=PORT)
+    with connection:
+        assert connection
+
+
+def test_connection_creates_new_socket_when_reset():
+    connection = Connection(host=HOST, port=PORT)
+    before = connection.socket
+    connection._reset_socket()
+    after = connection.socket
+    assert after != before
+
+
+def test_connection_supports_reusing_the_context_manager():
+    connection = Connection(host=HOST, port=PORT)
+
+    for _ in range(5):
+        with connection:
+            assert connection
+
+
+def test_connection_supports_sending_data():
+
+    # When connected
+    with Connection(host=HOST, port=PORT) as connection:
+        if not connection:
+            assert False
+        assert connection.send(data=bytearray())
+
+    # Not connected
+    connection = Connection(host=HOST, port=PORT)
+    assert not connection.send(data=bytearray())
+
+
+def test_connection_handles_exceptions_when_sending():
+
+    # Provoke broken pipe
+    connection = Connection(host=HOST, port=PORT)
+    connection.is_connected = True
+    assert not connection.send(data=bytearray())
+
+    # Provoke bad file descriptor
+    connection = Connection(host=HOST, port=PORT)
+    connection.is_connected = True
+    connection.socket.close()
+    assert not connection.send(data=bytearray())
+
+
+def test_connection_supports_receiving_data():
+
+    # Not connected
+    connection = Connection(host=HOST, port=PORT)
+    assert not connection.receive()
