@@ -76,3 +76,37 @@ def test_connection_supports_reusing_the_context_manager():
     for _ in range(5):
         with connection:
             assert connection
+
+
+def test_connection_supports_sending_data():
+
+    # When connected
+    with Connection(host=HOST, port=PORT) as connection:
+        if not connection:
+            assert False
+        assert connection.send(data=bytearray())
+
+    # Not connected
+    connection = Connection(host=HOST, port=PORT)
+    assert not connection.send(data=bytearray())
+
+
+def test_connection_handles_exceptions_when_sending():
+
+    # Provoke broken pipe
+    connection = Connection(host=HOST, port=PORT)
+    connection.is_connected = True
+    assert not connection.send(data=bytearray())
+
+    # Provoke bad file descriptor
+    connection = Connection(host=HOST, port=PORT)
+    connection.is_connected = True
+    connection.socket.close()
+    assert not connection.send(data=bytearray())
+
+
+def test_connection_supports_receiving_data():
+
+    # Not connected
+    connection = Connection(host=HOST, port=PORT)
+    assert not connection.receive()
