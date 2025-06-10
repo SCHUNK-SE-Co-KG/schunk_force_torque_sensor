@@ -14,3 +14,11 @@ Inside this package, use
 cargo run
 ```
 to build and start the sensor dummy.
+
+
+## Running tests
+Inside this repository, run tests with
+
+```bash
+cargo test  # <individual_test>
+```

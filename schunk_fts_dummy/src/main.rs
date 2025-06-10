@@ -13,8 +13,7 @@ async fn main() -> io::Result<()> {
         tokio::spawn(async move {
             let mut sensor = Sensor::new(socket);
             match sensor.read().await {
-                Ok(message) => {
-                    println!("Received: {}", message);
+                Ok(_) => {
                     let _ = sensor.write(b"Response from server").await;
                 }
                 Err(e) => eprintln!("Error reading from socket: {}", e),
