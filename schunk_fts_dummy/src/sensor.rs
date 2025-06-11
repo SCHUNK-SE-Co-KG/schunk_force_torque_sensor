@@ -1,4 +1,3 @@
-use bytes::{BufMut, BytesMut};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 pub struct Sensor<T> {
@@ -31,7 +30,7 @@ where
         self.stream.write_all(msg).await
     }
 
-    pub async fn process(&mut self, msg: &[u8]) -> tokio::io::Result<i8> {
+    pub async fn process(&mut self, msg: &[u8]) -> tokio::io::Result<u8> {
         let mut response = 0x00;
         let command_idx = 6;
         if !self.valid_commands.contains(&msg[command_idx]) {
@@ -46,6 +45,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::{BufMut, BytesMut};
     use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 
     #[tokio::test]

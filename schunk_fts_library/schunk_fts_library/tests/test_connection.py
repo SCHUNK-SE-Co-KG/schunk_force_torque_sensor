@@ -1,7 +1,8 @@
 from schunk_fts_library.utility import Connection
+import os
 
-HOST = "192.168.0.100"  # "0.0.0.0"
-PORT = 82  # 8082
+HOST = os.getenv("FTS_HOST", "192.168.0.100")
+PORT = int(os.getenv("FTS_PORT", 82))
 
 
 def test_connection_has_expected_fields():
