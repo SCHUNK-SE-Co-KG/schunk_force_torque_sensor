@@ -1,7 +1,7 @@
 from schunk_fts_library.driver import Driver
 
 
-def test_driver_offers_getting_parameters():
+def test_driver_offers_getting_parameters(fts_dummy):
     driver = Driver()
 
     param = "0001"  # product_name
@@ -11,7 +11,7 @@ def test_driver_offers_getting_parameters():
     assert response.param_value == expected_value
 
 
-def test_driver_offers_setting_parameters():
+def test_driver_offers_setting_parameters(fts_dummy):
     driver = Driver()
 
     param = "0050"  # switch ft-signal units

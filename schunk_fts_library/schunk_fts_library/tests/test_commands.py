@@ -5,7 +5,7 @@ HOST = os.getenv("FTS_HOST", "192.168.0.100")
 PORT = int(os.getenv("FTS_PORT", 82))
 
 
-def test_driver_offers_running_commands():
+def test_driver_offers_running_commands(fts_dummy):
     driver = Driver(host=HOST, port=PORT)
 
     # 41 = Stop UDP streaming

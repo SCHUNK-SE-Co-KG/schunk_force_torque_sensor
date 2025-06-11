@@ -12,7 +12,7 @@ def test_connection_has_expected_fields():
         assert connection.socket is not None
 
 
-def test_connection_succeeds_with_valid_arguments():
+def test_connection_succeeds_with_valid_arguments(fts_dummy):
     for _ in range(3):
         with Connection(host=HOST, port=PORT) as connection:
             assert connection.is_connected
@@ -41,7 +41,7 @@ def test_connection_closes_socket_on_exit():
             pass
 
 
-def test_connection_supports_bool_checks():
+def test_connection_supports_bool_checks(fts_dummy):
 
     # Successfully connected
     with Connection(host=HOST, port=PORT) as connection:
@@ -71,7 +71,7 @@ def test_connection_creates_new_socket_when_reset():
     assert after != before
 
 
-def test_connection_supports_reusing_the_context_manager():
+def test_connection_supports_reusing_the_context_manager(fts_dummy):
     connection = Connection(host=HOST, port=PORT)
 
     for _ in range(5):
@@ -79,7 +79,7 @@ def test_connection_supports_reusing_the_context_manager():
             assert connection
 
 
-def test_connection_supports_sending_data():
+def test_connection_supports_sending_data(fts_dummy):
 
     # When connected
     with Connection(host=HOST, port=PORT) as connection:

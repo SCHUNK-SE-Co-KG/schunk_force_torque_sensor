@@ -12,7 +12,11 @@ jobs:
   industrial_ci:
     env:
       BEFORE_BUILD_TARGET_WORKSPACE: '.github/script/install_dependencies.sh'
-      BEFORE_RUN_TARGET_TEST: '.github/script/start_dummy.sh'
+      BEFORE_RUN_TARGET_TEST: '.github/script/install_dummy.sh'
+
+      # Tell the tests where they reach the dummy
+      DOCKER_RUN_OPTS: "-e FTS_HOST=127.0.0.1 -e FTS_PORT=8082"
+
     strategy:
       fail-fast: false
       matrix:

@@ -22,7 +22,7 @@ coverage html    # for web-based output
 
 2. Set environment variables in the terminals in which you test
     ```bash
-    export FTS_HOST="0.0.0.0"
+    export FTS_HOST="127.0.0.1"
     export FTS_PORT=8082
     ```
     The tests will then connect to the FTS dummy.
