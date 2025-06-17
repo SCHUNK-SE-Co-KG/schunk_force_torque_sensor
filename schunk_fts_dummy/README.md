@@ -22,3 +22,4 @@ Inside this repository, run tests with
 ```bash
 cargo test  # <individual_test>
 ```
+Append the `-- --nocapture` flag to see print output.

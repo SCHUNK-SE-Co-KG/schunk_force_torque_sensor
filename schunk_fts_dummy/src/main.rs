@@ -20,19 +20,19 @@ async fn main() -> io::Result<()> {
                         return;
                     }
 
-                    // Process commands
-                    let cmd_index = 6;
-                    let cmd_id = msg[cmd_index];
-                    let error_code = sensor.process(&msg).await.unwrap();
+                    // Process data
+                    let payload = sensor.process(&msg).await.unwrap();
 
-                    let mut response = BytesMut::new();
+                    // Response msg
                     let counter = 0x0001;
-                    let payload_len = 0x0002;
+                    let payload_len = payload.to_vec().len();
+                    let mut response = BytesMut::new();
                     response.put_bytes(0xff, 2);
-                    response.put_u16(counter);
-                    response.put_u16(payload_len);
-                    response.put_u8(cmd_id);
-                    response.put_u8(error_code);
+                    response.put_u16_le(counter);
+                    response.put_u16_le(payload_len as u16);
+                    response.put_slice(&payload);
+
+                    // Send back
                     let _ = sensor.write(&response).await;
                 }
                 Err(e) => eprintln!("Error reading from socket: {}", e),
