@@ -2,13 +2,29 @@ import pytest
 from schunk_fts_library.utility import Connection
 from pathlib import Path
 import subprocess
+import os
 
 
 @pytest.fixture(scope="module")
-def fts_dummy():
-    print("start FTS dummy")
+def sensor():
 
-    # Run the dummy if we are in a CI setup.
+    sensor_available = False
+
+    # Real hardware
+    connection = Connection(host="192.168.0.100", port=82)
+    connection.socket.settimeout(0.5)
+    with connection:
+        if connection:
+            sensor_available = True
+
+    # Simulated hardware
+    connection = Connection(host="127.0.0.1", port=8082)
+    connection.socket.settimeout(0.5)
+    with connection:
+        if connection and os.getenv("FTS_HOST") and os.getenv("FTS_PORT"):
+            sensor_available = True
+
+    # CI setting
     ci_dummy = Path("/tmp/schunk_fts_dummy/debug/schunk_fts_dummy-")
     if ci_dummy.exists():
         process = subprocess.Popen(
@@ -16,13 +32,13 @@ def fts_dummy():
             stderr=subprocess.PIPE,
             text=True,
         )
+        sensor_available = True
 
-    # Check if we can reach the dummy
-    with Connection(host="127.0.0.1", port=8082) as connection:
-        if not connection:
-            pytest.skip("FTS dummy not reachable.")
+    if not sensor_available:
+        pytest.skip("Sensor not reachable.")
+
+    yield
 
     # Cleanup
     if ci_dummy.exists():
         process.kill()
-    print("stop FTS dummy")
