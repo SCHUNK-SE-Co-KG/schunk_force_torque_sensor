@@ -1,7 +1,8 @@
 from schunk_fts_library.utility import Connection
+import os
 
-HOST = "192.168.0.100"  # "0.0.0.0"
-PORT = 82  # 8082
+HOST = os.getenv("FTS_HOST", "192.168.0.100")
+PORT = int(os.getenv("FTS_PORT", 82))
 
 
 def test_connection_has_expected_fields():
@@ -11,7 +12,7 @@ def test_connection_has_expected_fields():
         assert connection.socket is not None
 
 
-def test_connection_succeeds_with_valid_arguments():
+def test_connection_succeeds_with_valid_arguments(sensor):
     for _ in range(3):
         with Connection(host=HOST, port=PORT) as connection:
             assert connection.is_connected
@@ -40,7 +41,7 @@ def test_connection_closes_socket_on_exit():
             pass
 
 
-def test_connection_supports_bool_checks():
+def test_connection_supports_bool_checks(sensor):
 
     # Successfully connected
     with Connection(host=HOST, port=PORT) as connection:
@@ -70,7 +71,7 @@ def test_connection_creates_new_socket_when_reset():
     assert after != before
 
 
-def test_connection_supports_reusing_the_context_manager():
+def test_connection_supports_reusing_the_context_manager(sensor):
     connection = Connection(host=HOST, port=PORT)
 
     for _ in range(5):
@@ -78,7 +79,7 @@ def test_connection_supports_reusing_the_context_manager():
             assert connection
 
 
-def test_connection_supports_sending_data():
+def test_connection_supports_sending_data(sensor):
 
     # When connected
     with Connection(host=HOST, port=PORT) as connection:

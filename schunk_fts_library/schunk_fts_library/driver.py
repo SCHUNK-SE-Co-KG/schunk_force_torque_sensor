@@ -10,10 +10,8 @@ from .utility import (
 
 
 class Driver(object):
-    def __init__(self) -> None:
-        self.host: str = "192.168.0.100"
-        self.port: int = 82
-        self.connection: Connection = Connection(self.host, self.port)
+    def __init__(self, host: str = "192.168.0.100", port: int = 82) -> None:
+        self.connection: Connection = Connection(host=host, port=port)
 
     def get_parameter(self, index: str, subindex: str = "00") -> GetParameterResponse:
         req = GetParameterRequest()
