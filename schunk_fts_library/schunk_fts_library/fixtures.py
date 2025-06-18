@@ -2,7 +2,19 @@ import pytest
 from pathlib import Path
 import subprocess
 import os
-from schunk_fts_library.utility import Connection
+import time
+import socket
+
+
+def sensor_available_at(host: str, port: int, timeout_sec=5.0) -> bool:
+    start = time.time()
+    while time.time() - start < timeout_sec:
+        try:
+            with socket.create_connection((host, port), timeout=0.5):
+                return True
+        except (ConnectionRefusedError, socket.timeout):
+            time.sleep(0.1)
+    return False
 
 
 @pytest.fixture(scope="module")
@@ -14,18 +26,12 @@ def sensor():
         return os.getenv("FTS_HOST") is not None and os.getenv("FTS_PORT") is not None
 
     # Real hardware
-    connection = Connection(host="192.168.0.100", port=82)
-    connection.socket.settimeout(2.0)
-    with connection:
-        if connection:
-            sensor_available = True
+    if sensor_available_at(host="192.168.0.100", port=82):
+        sensor_available = True
 
     # Simulated hardware
-    connection = Connection(host="127.0.0.1", port=8082)
-    connection.socket.settimeout(0.5)
-    with connection:
-        if connection and env_variables_set():
-            sensor_available = True
+    if sensor_available_at(host="127.0.0.1", port=8082) and env_variables_set():
+        sensor_available = True
 
     # CI setting
     ci_dummy = Path("/tmp/schunk_fts_dummy/debug/schunk_fts_dummy")
@@ -36,10 +42,8 @@ def sensor():
             stderr=subprocess.PIPE,
             text=True,
         )
-        connection = Connection(host="127.0.0.1", port=8082)
-        connection.socket.settimeout(5.0)
-        with connection:
-            if connection and env_variables_set():
+        if sensor_available_at(host="127.0.0.1", port=8082):
+            if env_variables_set():
                 sensor_available = True
 
     try:
@@ -47,7 +51,7 @@ def sensor():
             pytest.skip("Sensor not reachable.")
         yield
 
+    # Cleanup
     finally:
-        # Cleanup
         if ci_dummy.exists() and process is not None:
             process.kill()
