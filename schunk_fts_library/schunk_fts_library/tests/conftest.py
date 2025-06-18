@@ -5,6 +5,10 @@ import subprocess
 import os
 
 
+def env_variables_set() -> bool:
+    return os.getenv("FTS_HOST") is not None and os.getenv("FTS_PORT") is not None
+
+
 @pytest.fixture(scope="module")
 def sensor():
 
@@ -21,18 +25,22 @@ def sensor():
     connection = Connection(host="127.0.0.1", port=8082)
     connection.socket.settimeout(0.5)
     with connection:
-        if connection and os.getenv("FTS_HOST") and os.getenv("FTS_PORT"):
+        if connection and env_variables_set():
             sensor_available = True
 
     # CI setting
-    ci_dummy = Path("/tmp/schunk_fts_dummy/debug/schunk_fts_dummy-")
+    ci_dummy = Path("/tmp/schunk_fts_dummy/debug/schunk_fts_dummy")
     if ci_dummy.exists():
         process = subprocess.Popen(
             [ci_dummy],
             stderr=subprocess.PIPE,
             text=True,
         )
-        sensor_available = True
+        connection = Connection(host="127.0.0.1", port=8082)
+        connection.socket.settimeout(5.0)
+        with connection:
+            if connection and env_variables_set():
+                sensor_available = True
 
     if not sensor_available:
         pytest.skip("Sensor not reachable.")
