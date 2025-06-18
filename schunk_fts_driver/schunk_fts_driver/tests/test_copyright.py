@@ -14,10 +14,14 @@
 
 from ament_copyright.main import main
 import pytest
+import glob
+
+excluded_files = glob.glob("**/__init__.py", recursive=True)
+exclude_args = sum([["--exclude", f] for f in excluded_files], [])
 
 
 @pytest.mark.copyright
 @pytest.mark.linter
 def test_copyright():
-    rc = main(argv=[".", "--exclude", "**/__init__.py"])
+    rc = main(argv=["."] + exclude_args)
     assert rc == 0, "Found errors"
