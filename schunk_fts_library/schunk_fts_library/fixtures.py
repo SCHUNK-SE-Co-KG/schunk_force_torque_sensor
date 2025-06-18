@@ -29,6 +29,7 @@ def sensor():
 
     # CI setting
     ci_dummy = Path("/tmp/schunk_fts_dummy/debug/schunk_fts_dummy")
+    process = None
     if ci_dummy.exists():
         process = subprocess.Popen(
             [ci_dummy],
@@ -41,11 +42,12 @@ def sensor():
             if connection and env_variables_set():
                 sensor_available = True
 
-    if not sensor_available:
-        pytest.skip("Sensor not reachable.")
+    try:
+        if not sensor_available:
+            pytest.skip("Sensor not reachable.")
+        yield
 
-    yield
-
-    # Cleanup
-    if ci_dummy.exists():
-        process.kill()
+    finally:
+        # Cleanup
+        if ci_dummy.exists() and process is not None:
+            process.kill()
