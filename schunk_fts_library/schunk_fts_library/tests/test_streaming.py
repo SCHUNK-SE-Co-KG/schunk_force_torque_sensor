@@ -119,4 +119,8 @@ def test_stream_returns_only_most_recent_data(send_messages):
 
 def test_stream_returns_immediately_without_data():
     with Stream(port=PORT) as stream:
+        start = time.perf_counter()
         assert stream.read() == bytearray()
+        stop = time.perf_counter()
+        elapsed = (stop - start) * 1000  # ms
+        assert elapsed < 0.1
