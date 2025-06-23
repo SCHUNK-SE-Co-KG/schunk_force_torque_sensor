@@ -1,6 +1,7 @@
 from schunk_fts_library.utility import Stream
 import struct
 import os
+import time
 
 
 PORT = int(os.getenv("FTS_STREAMING_PORT", 54843))
@@ -67,9 +68,7 @@ def test_stream_can_be_reused():
             assert stream.is_open
 
 
-def test_stream_supports_reading_data(send_message):
-
-    # Put some values to read
+def test_stream_supports_reading_data(send_messages):
     data = {
         "packet_id": 1,
         "status_bits": 0x00000000,
@@ -82,17 +81,42 @@ def test_stream_supports_reading_data(send_message):
     }
     msg = encode(data=data)
 
-    # Empty when not open
+    # Empty return when not open
     stream = Stream(port=PORT)
     assert stream.read() == bytearray()
 
     # Succeeds when open.
     # Make sure to send data after we bind to the port to not miss it.
     with stream:
-        send_message(PORT, msg)
+        send_messages(PORT, [msg])
+        time.sleep(0.1)
         assert stream.read() == msg
 
 
-def test_stream_timeouts_without_data():
+def test_stream_returns_only_most_recent_data(send_messages):
+    messages = []
+    for id in [1, 2, 3, 4]:
+        messages.append(
+            encode(
+                {
+                    "packet_id": id,
+                    "status_bits": 0x00000000,
+                    "fx": 1.0,
+                    "fy": 2.0,
+                    "fz": 3.0,
+                    "tx": 4.0,
+                    "ty": 5.0,
+                    "tz": 6.0,
+                }
+            )
+        )
+
+    with Stream(port=PORT) as stream:
+        send_messages(PORT, messages)
+        time.sleep(0.1)
+        assert stream.read() == messages[-1]
+
+
+def test_stream_returns_immediately_without_data():
     with Stream(port=PORT) as stream:
         assert stream.read() == bytearray()

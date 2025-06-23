@@ -12,11 +12,14 @@ class Stream(object):
     def read(self) -> bytearray:
         msg = bytearray()
         if self.is_open:
-            try:
-                data, _ = self.socket.recvfrom(1024)
-                msg.extend(data)
-            except TimeoutError:
-                pass
+            latest_data = None
+            while True:
+                try:
+                    latest_data, _ = self.socket.recvfrom(1024)
+                except BlockingIOError:
+                    break
+            if latest_data:
+                msg.extend(latest_data)
         return msg
 
     def __enter__(self) -> "Stream":
@@ -39,7 +42,7 @@ class Stream(object):
     def _reset_socket(self) -> None:
         self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.settimeout(1.0)
+        self.socket.setblocking(False)
 
 
 class Connection(object):
