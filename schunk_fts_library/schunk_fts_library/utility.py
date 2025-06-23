@@ -5,9 +5,19 @@ from socket import socket as Socket
 
 class Stream(object):
     def __init__(self, port: int) -> None:
-        self.port = port
+        self.port: int = port
+        self.is_open: bool = False
         self._reset_socket()
-        self.is_open = False
+
+    def read(self) -> bytearray:
+        msg = bytearray()
+        if self.is_open:
+            try:
+                data, _ = self.socket.recvfrom(1024)
+                msg.extend(data)
+            except TimeoutError:
+                pass
+        return msg
 
     def __enter__(self) -> "Stream":
         if self.port < 1024 or self.port > 65535:
@@ -27,8 +37,9 @@ class Stream(object):
         self.socket.close()
 
     def _reset_socket(self) -> None:
-        self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.settimeout(1.0)
 
 
 class Connection(object):
