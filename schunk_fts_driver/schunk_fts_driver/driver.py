@@ -19,6 +19,8 @@ import rclpy
 from rclpy.lifecycle import Node, State, TransitionCallbackReturn
 from rclpy.executors import MultiThreadedExecutor, ExternalShutdownException
 from rcl_interfaces.msg import SetParametersResult
+from geometry_msgs.msg import WrenchStamped
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 
 class Driver(Node):
@@ -26,16 +28,28 @@ class Driver(Node):
     def __init__(self, node_name: str, **kwargs):
         super().__init__(node_name, **kwargs)
 
+        # For force-torque data
+        self.callback_group = MutuallyExclusiveCallbackGroup()
+
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_configure() is called.")
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_activate() is called.")
+
+        self.ft_data_publisher = self.create_publisher(
+            msg_type=WrenchStamped,
+            topic="~/data",
+            qos_profile=1,
+            callback_group=self.callback_group,
+        )
         return super().on_activate(state)
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_deactivate() is called.")
+
+        self.destroy_publisher(self.ft_data_publisher)
         return super().on_deactivate(state)
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:
