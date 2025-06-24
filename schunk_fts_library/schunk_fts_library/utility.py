@@ -1,17 +1,23 @@
 import struct
 import socket
 from socket import socket as Socket
+from threading import Lock
 
 
 class Stream(object):
     def __init__(self, port: int) -> None:
         self.port: int = port
-        self.is_open: bool = False
+        self._lock: Lock = Lock()
+        self._is_open: bool = False
         self._reset_socket()
+
+    def is_open(self) -> bool:
+        with self._lock:
+            return self._is_open
 
     def read(self) -> bytearray:
         msg = bytearray()
-        if self.is_open:
+        if self.is_open():
             latest_data = None
             while True:
                 try:
@@ -30,13 +36,15 @@ class Stream(object):
                 self._reset_socket()
             try:
                 self.socket.bind(("127.0.0.1", self.port))
-                self.is_open = True
+                with self._lock:
+                    self._is_open = True
             except OSError as e:
                 print(f"Stream: General socket error: {e}")
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self.is_open = False
+        with self._lock:
+            self._is_open = False
         self.socket.close()
 
     def _reset_socket(self) -> None:

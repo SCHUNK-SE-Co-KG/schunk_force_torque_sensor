@@ -2,6 +2,7 @@ from schunk_fts_library.utility import Stream
 import struct
 import os
 import time
+from threading import Thread
 
 
 PORT = int(os.getenv("FTS_STREAMING_PORT", 54843))
@@ -30,14 +31,14 @@ def test_stream_opens_with_valid_ports():
     valid_ports = [54843, 54001, 54002]
     for port in valid_ports:
         with Stream(port=port) as stream:
-            assert stream.is_open, port
+            assert stream.is_open(), port
 
 
 def test_stream_rejects_invalid_ports():
     invalid_ports = [0, -1, 80, 1023, 65535 + 1]
     for port in invalid_ports:
         with Stream(port=port) as stream:
-            assert not stream.is_open
+            assert not stream.is_open()
 
 
 def test_stream_closes_socket_on_exit():
@@ -45,7 +46,7 @@ def test_stream_closes_socket_on_exit():
     with stream:
         pass
     assert stream.socket.fileno() == -1  # means closed
-    assert not stream.is_open
+    assert not stream.is_open()
 
     # Repeated closing
     for _ in range(3):
@@ -65,7 +66,7 @@ def test_stream_can_be_reused():
     stream = Stream(port=PORT)
     for _ in range(5):
         with stream:
-            assert stream.is_open
+            assert stream.is_open()
 
 
 def test_stream_supports_reading_data(send_messages):
@@ -124,3 +125,22 @@ def test_stream_returns_immediately_without_data():
         stop = time.perf_counter()
         elapsed = (stop - start) * 1000  # ms
         assert elapsed < 0.1
+
+
+def test_stream_doesnt_deadlock_for_concurrent_is_open_calls():
+    stream = Stream(port=PORT)
+    nr_iterations = 100
+
+    def check():
+        for n in range(nr_iterations):
+            assert not stream.is_open()
+
+    threads = []
+    for i in range(10):
+        writing_thread = Thread(target=check, daemon=True)
+        writing_thread.start()
+        threads.append(writing_thread)
+
+    for thread in threads:
+        thread.join()
+        assert not thread.is_alive()
