@@ -1,5 +1,6 @@
 from schunk_fts_library.driver import Driver
 from schunk_fts_library.utility import Connection
+import time
 
 
 def test_driver_initializes_as_expected():
@@ -18,3 +19,33 @@ def test_driver_initializes_as_expected():
     driver = Driver(host=host, port=port)
     assert driver.connection.host == host
     assert driver.connection.port == port
+
+
+def test_driver_offers_streaming():
+    driver = Driver()
+    assert not driver.is_streaming
+
+    for _ in range(3):
+        assert not driver.stream.is_open()
+        driver.streaming_on()
+        time.sleep(0.1)
+        assert driver.is_streaming
+        assert driver.stream.is_open()
+
+        driver.streaming_off()
+        time.sleep(0.1)
+        assert not driver.is_streaming
+        assert not driver.stream.is_open()
+
+
+def test_driver_runs_update_thread_when_streaming():
+    driver = Driver()
+    assert not driver.update_thread.is_alive()
+
+    for _ in range(3):
+        driver.streaming_on()
+        assert driver.update_thread.is_alive()
+        driver.streaming_off()
+
+        time.sleep(0.1)  # wait to take effect
+        assert not driver.update_thread.is_alive()

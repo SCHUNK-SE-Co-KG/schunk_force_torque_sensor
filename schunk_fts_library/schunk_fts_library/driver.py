@@ -1,5 +1,6 @@
 from .utility import (
     Connection,
+    Stream,
     SetParameterRequest,
     SetParameterResponse,
     GetParameterRequest,
@@ -7,11 +8,28 @@ from .utility import (
     CommandRequest,
     CommandResponse,
 )
+from threading import Thread
+import asyncio
 
 
 class Driver(object):
     def __init__(self, host: str = "192.168.0.100", port: int = 82) -> None:
         self.connection: Connection = Connection(host=host, port=port)
+        self.stream: Stream = Stream(port=54843)
+        self.update_thread: Thread = Thread()
+        self.is_streaming = False
+
+    def streaming_on(self) -> None:
+        self.is_streaming = True
+        self.update_thread = Thread(
+            target=asyncio.run,
+            args=(self._update(),),
+            daemon=True,
+        )
+        self.update_thread.start()
+
+    def streaming_off(self) -> None:
+        self.is_streaming = False
 
     def get_parameter(self, index: str, subindex: str = "00") -> GetParameterResponse:
         req = GetParameterRequest()
@@ -61,3 +79,8 @@ class Driver(object):
         response = CommandResponse()
         response.from_bytes(data)
         return response
+
+    async def _update(self) -> None:
+        with self.stream:
+            while self.is_streaming:
+                await asyncio.sleep(0.01)
