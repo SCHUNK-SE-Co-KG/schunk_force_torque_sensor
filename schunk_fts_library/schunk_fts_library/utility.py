@@ -2,6 +2,51 @@ import struct
 import socket
 from socket import socket as Socket
 from threading import Lock
+from typing import TypedDict
+
+from multiprocessing import Array
+import ctypes
+
+
+class FTData(TypedDict):
+    id: int
+    status_bits: int
+    fx: float
+    fy: float
+    fz: float
+    tx: float
+    ty: float
+    tz: float
+
+
+class FTDataBuffer(object):
+    def __init__(self) -> None:
+        self._data = Array(ctypes.c_double, 8)  # for simplicity
+        self._lock: Lock = Lock()
+
+    def put(self, data: FTData) -> None:
+        with self._lock:
+            self._data[0] = data["id"]
+            self._data[1] = data["status_bits"]
+            self._data[2] = data["fx"]
+            self._data[3] = data["fy"]
+            self._data[4] = data["fz"]
+            self._data[5] = data["tx"]
+            self._data[6] = data["ty"]
+            self._data[7] = data["tz"]
+
+    def get(self) -> FTData:
+        with self._lock:
+            return FTData(
+                id=int(self._data[0]),
+                status_bits=int(self._data[1]),
+                fx=self._data[2],
+                fy=self._data[3],
+                fz=self._data[4],
+                tx=self._data[5],
+                ty=self._data[6],
+                tz=self._data[7],
+            )
 
 
 class Stream(object):

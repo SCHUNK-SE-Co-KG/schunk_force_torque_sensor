@@ -66,3 +66,14 @@ def test_driver_runs_update_thread_when_streaming():
 
         time.sleep(0.1)  # wait to take effect
         assert not driver.update_thread.is_alive()
+
+
+def test_driver_supports_sampling_force_torque_data():
+    driver = Driver()
+
+    # Not streaming
+    assert driver.sample() is None
+
+    # Streaming
+    driver.streaming_on()
+    assert driver.sample() is not None

@@ -137,9 +137,9 @@ def test_stream_doesnt_deadlock_for_concurrent_is_open_calls():
 
     threads = []
     for i in range(10):
-        writing_thread = Thread(target=check, daemon=True)
-        writing_thread.start()
-        threads.append(writing_thread)
+        thread = Thread(target=check, daemon=True)
+        thread.start()
+        threads.append(thread)
 
     for thread in threads:
         thread.join()

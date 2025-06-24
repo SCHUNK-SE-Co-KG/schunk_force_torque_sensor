@@ -1,6 +1,8 @@
 from .utility import (
     Connection,
     Stream,
+    FTData,
+    FTDataBuffer,
     SetParameterRequest,
     SetParameterResponse,
     GetParameterRequest,
@@ -15,6 +17,7 @@ import asyncio
 class Driver(object):
     def __init__(self, host: str = "192.168.0.100", port: int = 82) -> None:
         self.connection: Connection = Connection(host=host, port=port)
+        self.ft_data: FTDataBuffer = FTDataBuffer()
         self.stream: Stream = Stream(port=54843)
         self.update_thread: Thread = Thread()
         self.is_streaming = False
@@ -32,6 +35,12 @@ class Driver(object):
 
     def streaming_off(self) -> None:
         self.is_streaming = False
+
+    def sample(self) -> FTData | None:
+        if not self.is_streaming:
+            return None
+
+        return self.ft_data.get()
 
     def get_parameter(self, index: str, subindex: str = "00") -> GetParameterResponse:
         req = GetParameterRequest()
