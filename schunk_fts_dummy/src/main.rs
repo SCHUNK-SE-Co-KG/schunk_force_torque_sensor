@@ -1,4 +1,5 @@
 mod sensor;
+mod udp;
 
 use bytes::{BufMut, BytesMut};
 use sensor::Sensor;
@@ -7,6 +8,10 @@ use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
+    tokio::spawn(async {
+        udp::stream_ft_data().await;
+    });
+
     let listener = TcpListener::bind("127.0.0.1:8082").await?;
 
     loop {
