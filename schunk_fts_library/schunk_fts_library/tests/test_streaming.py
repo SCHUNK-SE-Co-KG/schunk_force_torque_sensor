@@ -82,13 +82,13 @@ def test_stream_supports_reading_data(send_messages):
     msg = encode(data=data)
 
     # Empty return when not open
-    stream = Stream(port=PORT)
+    stream = Stream(port=8001)
     assert stream.read() == bytearray()
 
     # Succeeds when open.
     # Make sure to send data after we bind to the port to not miss it.
     with stream:
-        send_messages(PORT, [msg])
+        send_messages(8001, [msg])
         time.sleep(0.1)
         assert stream.read() == msg
 
@@ -111,14 +111,14 @@ def test_stream_returns_only_most_recent_data(send_messages):
             )
         )
 
-    with Stream(port=PORT) as stream:
-        send_messages(PORT, messages)
+    with Stream(port=8001) as stream:
+        send_messages(8001, messages)
         time.sleep(0.1)
         assert stream.read() == messages[-1]
 
 
 def test_stream_returns_immediately_without_data():
-    with Stream(port=PORT) as stream:
+    with Stream(port=8001) as stream:
         start = time.perf_counter()
         assert stream.read() == bytearray()
         stop = time.perf_counter()
