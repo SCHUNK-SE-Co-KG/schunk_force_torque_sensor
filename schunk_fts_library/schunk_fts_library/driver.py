@@ -20,6 +20,8 @@ class Driver(object):
         self.is_streaming = False
 
     def streaming_on(self) -> None:
+        if self.is_streaming:
+            return
         self.is_streaming = True
         self.update_thread = Thread(
             target=asyncio.run,

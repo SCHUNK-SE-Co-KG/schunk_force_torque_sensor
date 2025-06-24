@@ -38,6 +38,23 @@ def test_driver_offers_streaming():
         assert not driver.stream.is_open()
 
 
+def test_driver_uses_same_stream_for_multiple_on_calls():
+    driver = Driver()
+    driver.streaming_on()
+    before = driver.update_thread
+    for _ in range(3):
+        driver.streaming_on()
+        after = driver.update_thread
+    assert after == before
+
+
+def test_driver_survives_multiple_streaming_off_calls():
+    driver = Driver()
+    for _ in range(3):
+        driver.streaming_off()
+    assert not driver.is_streaming
+
+
 def test_driver_runs_update_thread_when_streaming():
     driver = Driver()
     assert not driver.update_thread.is_alive()
