@@ -1,6 +1,7 @@
 from schunk_fts_library.driver import Driver
-from schunk_fts_library.utility import Connection
+from schunk_fts_library.utility import Connection, FTDataBuffer
 import time
+import pytest
 
 
 def test_driver_initializes_as_expected():
@@ -73,11 +74,44 @@ def test_driver_timeouts_when_streaming_fails():
         assert not driver.streaming_on(timeout_sec=timeout)
 
 
-def test_driver_supports_sampling_force_torque_data(sensor):
-    driver = Driver()
+def test_driver_supports_sampling_force_torque_data(send_messages):
+    test_port = 8001
+    driver = Driver(streaming_port=test_port)
 
     # Not streaming
     assert driver.sample() is None
+
+    # Stream a specific data point and check
+    # that we sample that.
+    assert driver.streaming_on()
+    data = {
+        "id": 1,
+        "status_bits": 0x00000000,
+        "fx": 1.0,
+        "fy": 2.1,
+        "fz": 3.3,
+        "tx": 0.04,
+        "ty": -17.358,
+        "tz": 23.001,
+    }
+    buffer = FTDataBuffer()
+    msg = buffer.encode(data=data)
+    send_messages(test_port, [msg])
+    time.sleep(0.1)
+
+    result = driver.sample()
+    assert result["id"] == data["id"]
+    assert result["status_bits"] == data["status_bits"]
+    assert pytest.approx(result["fx"]) == data["fx"]
+    assert pytest.approx(result["fy"]) == data["fy"]
+    assert pytest.approx(result["fz"]) == data["fz"]
+    assert pytest.approx(result["tx"]) == data["tx"]
+    assert pytest.approx(result["ty"]) == data["ty"]
+    assert pytest.approx(result["tz"]) == data["tz"]
+
+
+def test_driver_supports_sampling_at_different_rates(sensor):
+    driver = Driver()
 
     # Test streaming at different rates
     assert driver.streaming_on()
