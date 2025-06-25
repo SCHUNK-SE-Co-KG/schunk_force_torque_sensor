@@ -23,6 +23,10 @@ class FTDataBuffer(object):
     def __init__(self) -> None:
         self._data = Array(ctypes.c_double, 8)  # for simplicity
         self._lock: Lock = Lock()
+        self._length: int = 29
+
+    def __len__(self):
+        return self._length
 
     def put(self, data: FTData) -> None:
         with self._lock:
@@ -47,6 +51,31 @@ class FTDataBuffer(object):
                 ty=self._data[6],
                 tz=self._data[7],
             )
+
+    def encode(self, data: FTData) -> bytearray:
+        result = bytearray()
+        result.extend(bytes(struct.pack("B", data["id"])))
+        result.extend(bytes(struct.pack("i", data["status_bits"])))
+        result.extend(bytes(struct.pack("f", data["fx"])))
+        result.extend(bytes(struct.pack("f", data["fy"])))
+        result.extend(bytes(struct.pack("f", data["fz"])))
+        result.extend(bytes(struct.pack("f", data["tx"])))
+        result.extend(bytes(struct.pack("f", data["ty"])))
+        result.extend(bytes(struct.pack("f", data["tz"])))
+        return result
+
+    def decode(self, data: bytearray) -> FTData:
+        result = FTData(
+            id=struct.unpack("B", data[0:1])[0],
+            status_bits=struct.unpack("I", data[1:5])[0],
+            fx=struct.unpack("f", data[5:9])[0],
+            fy=struct.unpack("f", data[9:13])[0],
+            fz=struct.unpack("f", data[13:17])[0],
+            tx=struct.unpack("f", data[17:21])[0],
+            ty=struct.unpack("f", data[21:25])[0],
+            tz=struct.unpack("f", data[25:29])[0],
+        )
+        return result
 
 
 class Stream(object):

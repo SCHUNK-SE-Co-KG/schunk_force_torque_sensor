@@ -23,6 +23,18 @@ def test_buffer_offers_putting_and_getting_data():
     assert buffer.get() == data
 
 
+def test_buffer_supports_encoding_and_decoding():
+    buffer = FTDataBuffer()
+    data = FTData(id=0, status_bits=0, fx=1.0, fy=2.0, fz=3.0, tx=4.0, ty=5.0, tz=6.0)
+    encoded_data = buffer.encode(data)
+    assert buffer.decode(encoded_data) == data
+
+
+def test_buffer_knows_expected_length():
+    buffer = FTDataBuffer()
+    assert len(buffer) == buffer._length
+
+
 def test_buffer_supports_concurrent_accesses():
     buffer = FTDataBuffer()
 

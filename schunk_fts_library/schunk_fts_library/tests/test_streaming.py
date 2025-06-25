@@ -1,24 +1,10 @@
-from schunk_fts_library.utility import Stream
-import struct
+from schunk_fts_library.utility import Stream, FTDataBuffer
 import os
 import time
 from threading import Thread
 
 
 PORT = int(os.getenv("FTS_STREAMING_PORT", 54843))
-
-
-def encode(data: dict) -> bytearray:
-    message = bytearray()
-    message.extend(bytes(struct.pack("B", data["packet_id"])))
-    message.extend(bytes(struct.pack("i", data["status_bits"])))
-    message.extend(bytes(struct.pack("f", data["fx"])))
-    message.extend(bytes(struct.pack("f", data["fy"])))
-    message.extend(bytes(struct.pack("f", data["fz"])))
-    message.extend(bytes(struct.pack("f", data["tx"])))
-    message.extend(bytes(struct.pack("f", data["ty"])))
-    message.extend(bytes(struct.pack("f", data["tz"])))
-    return message
 
 
 def test_stream_has_expected_fields():
@@ -71,7 +57,7 @@ def test_stream_can_be_reused():
 
 def test_stream_supports_reading_data(send_messages):
     data = {
-        "packet_id": 1,
+        "id": 1,
         "status_bits": 0x00000000,
         "fx": 1.0,
         "fy": 2.1,
@@ -80,7 +66,8 @@ def test_stream_supports_reading_data(send_messages):
         "ty": -17.358,
         "tz": 23.001,
     }
-    msg = encode(data=data)
+    buffer = FTDataBuffer()
+    msg = buffer.encode(data=data)
 
     # Empty return when not open
     stream = Stream(port=8001)
@@ -96,11 +83,12 @@ def test_stream_supports_reading_data(send_messages):
 
 def test_stream_returns_only_most_recent_data(send_messages):
     messages = []
+    buffer = FTDataBuffer()
     for id in [1, 2, 3, 4]:
         messages.append(
-            encode(
-                {
-                    "packet_id": id,
+            buffer.encode(
+                data={
+                    "id": id,
                     "status_bits": 0x00000000,
                     "fx": 1.0,
                     "fy": 2.0,
