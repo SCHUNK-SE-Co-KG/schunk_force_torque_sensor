@@ -12,19 +12,24 @@ from .utility import (
 )
 from threading import Thread
 import asyncio
+import time
 
 
 class Driver(object):
-    def __init__(self, host: str = "192.168.0.100", port: int = 82) -> None:
+    def __init__(
+        self, host: str = "192.168.0.100", port: int = 82, streaming_port: int = 54843
+    ) -> None:
         self.connection: Connection = Connection(host=host, port=port)
         self.ft_data: FTDataBuffer = FTDataBuffer()
-        self.stream: Stream = Stream(port=54843)
+        self.stream: Stream = Stream(port=streaming_port)
         self.update_thread: Thread = Thread()
         self.is_streaming = False
 
-    def streaming_on(self) -> None:
+    def streaming_on(self, timeout_sec: float = 0.1) -> bool:
         if self.is_streaming:
-            return
+            return True
+        if not isinstance(timeout_sec, float):
+            return False
         self.is_streaming = True
         self.update_thread = Thread(
             target=asyncio.run,
@@ -32,9 +37,18 @@ class Driver(object):
             daemon=True,
         )
         self.update_thread.start()
+        max_duration = time.time() + timeout_sec
+        while not self.stream.is_open():
+            time.sleep(0.01)
+            if time.time() > max_duration:
+                self.is_streaming = False
+                return False
+        return True
 
     def streaming_off(self) -> None:
         self.is_streaming = False
+        while self.update_thread.is_alive():
+            time.sleep(0.01)
 
     def sample(self) -> FTData | None:
         if not self.is_streaming:

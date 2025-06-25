@@ -1,6 +1,5 @@
 from schunk_fts_library.driver import Driver
 from schunk_fts_library.utility import Connection
-import time
 
 
 def test_driver_initializes_as_expected():
@@ -27,13 +26,11 @@ def test_driver_offers_streaming():
 
     for _ in range(3):
         assert not driver.stream.is_open()
-        driver.streaming_on()
-        time.sleep(0.1)
+        assert driver.streaming_on()
         assert driver.is_streaming
         assert driver.stream.is_open()
 
         driver.streaming_off()
-        time.sleep(0.1)
         assert not driver.is_streaming
         assert not driver.stream.is_open()
 
@@ -43,7 +40,7 @@ def test_driver_uses_same_stream_for_multiple_on_calls():
     driver.streaming_on()
     before = driver.update_thread
     for _ in range(3):
-        driver.streaming_on()
+        assert driver.streaming_on()
         after = driver.update_thread
     assert after == before
 
@@ -63,9 +60,16 @@ def test_driver_runs_update_thread_when_streaming():
         driver.streaming_on()
         assert driver.update_thread.is_alive()
         driver.streaming_off()
-
-        time.sleep(0.1)  # wait to take effect
         assert not driver.update_thread.is_alive()
+
+
+def test_driver_timeouts_when_streaming_fails():
+    driver = Driver(streaming_port=-1)
+    assert not driver.streaming_on()
+
+    invalid_timeouts = [-1, -500.0, 0, 0.0, "15.0", ""]
+    for timeout in invalid_timeouts:
+        assert not driver.streaming_on(timeout_sec=timeout)
 
 
 def test_driver_supports_sampling_force_torque_data():
