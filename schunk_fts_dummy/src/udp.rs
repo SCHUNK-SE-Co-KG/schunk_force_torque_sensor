@@ -1,5 +1,6 @@
 use bytes::{BufMut, BytesMut};
 use std::net::SocketAddr;
+use std::time::{Duration, Instant};
 use tokio::net::UdpSocket;
 
 pub async fn stream_ft_data() {
@@ -8,16 +9,27 @@ pub async fn stream_ft_data() {
 
     let mut packet_id: u8 = 0;
 
+    let frequency_hz = 8000.0;
+    let interval = Duration::from_secs_f64(1.0 / frequency_hz);
+    let mut next_time = Instant::now();
+
+    let start_time = Instant::now();
+    let f = 1.0; // Hz
+
     loop {
         let mut buf = BytesMut::with_capacity(29);
 
+        let elapsed = start_time.elapsed().as_secs_f32();
+        let omega = 2.0 * std::f32::consts::PI * f;
+
+        let fx = (omega * elapsed).sin();
+        let fy = (omega * elapsed + 1.0).sin(); // phase shift for variety
+        let fz = (omega * elapsed + 2.0).sin();
+        let tx = (omega * elapsed + 3.0).sin();
+        let ty = (omega * elapsed + 4.0).sin();
+        let tz = (omega * elapsed + 5.0).sin();
+
         let status_bits: i32 = 0x00000000;
-        let fx: f32 = 1.0;
-        let fy: f32 = 2.0;
-        let fz: f32 = 3.0;
-        let tx: f32 = 4.0;
-        let ty: f32 = 5.0;
-        let tz: f32 = 6.0;
 
         buf.put_u8(packet_id);
         buf.put_i32_le(status_bits);
@@ -30,5 +42,8 @@ pub async fn stream_ft_data() {
 
         let _ = socket.send_to(&buf, &target).await;
         packet_id = packet_id.wrapping_add(1);
+
+        while Instant::now() < next_time {}
+        next_time += interval;
     }
 }
