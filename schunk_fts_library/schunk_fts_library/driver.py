@@ -108,4 +108,7 @@ class Driver(object):
     async def _update(self) -> None:
         with self.stream:
             while self.is_streaming:
-                await asyncio.sleep(0.01)
+                packet = self.stream.read()
+                if len(packet) == len(self.ft_data):
+                    values = self.ft_data.decode(packet)
+                    self.ft_data.put(values)

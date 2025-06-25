@@ -1,5 +1,6 @@
 from schunk_fts_library.driver import Driver
 from schunk_fts_library.utility import Connection
+import time
 
 
 def test_driver_initializes_as_expected():
@@ -72,12 +73,24 @@ def test_driver_timeouts_when_streaming_fails():
         assert not driver.streaming_on(timeout_sec=timeout)
 
 
-def test_driver_supports_sampling_force_torque_data():
+def test_driver_supports_sampling_force_torque_data(sensor):
     driver = Driver()
 
     # Not streaming
     assert driver.sample() is None
 
-    # Streaming
-    driver.streaming_on()
-    assert driver.sample() is not None
+    # Test streaming at different rates
+    assert driver.streaming_on()
+    rates = [10, 100, 1000, 8000]
+    duration_sec = 1.0
+
+    for rate in rates:
+        start = time.time()
+        previous_value = None
+        count = 0
+        while time.time() < start + duration_sec:
+            sample = driver.sample()
+            count += 1
+            assert sample != previous_value, f"rate: {rate}, count: {count}"
+            previous_value = sample
+            time.sleep(1.0 / rate)
