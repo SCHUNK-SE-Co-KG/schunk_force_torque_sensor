@@ -38,22 +38,46 @@ def test_buffer_knows_expected_length():
 def test_buffer_supports_concurrent_accesses():
     buffer = FTDataBuffer()
 
-    nr_iterations = 100
+    nr_iterations = 100000
 
-    def access():
+    data0 = FTData(id=0, status_bits=0, fx=0.0, fy=0.0, fz=0.0, tx=0.0, ty=0.0, tz=0.0)
+    data1 = FTData(id=1, status_bits=1, fx=1.1, fy=1.1, fz=1.1, tx=1.1, ty=1.1, tz=1.1)
+
+    def write():
         for n in range(nr_iterations):
-            data = FTData(
-                id=0, status_bits=0, fx=1.0, fy=2.0, fz=3.0, tx=4.0, ty=5.0, tz=6.0
-            )
-            buffer.put(data=data)
-            assert buffer.get() == data
+            if n % 2 == 0:
+                buffer.put(data=data0)
+            else:
+                buffer.put(data=data1)
+
+    exception = None
+
+    def read():
+        nonlocal exception
+        for n in range(nr_iterations):
+            # Check data consistency
+            data = buffer.get()
+            data_consistent = data == data0 or data == data1
+            try:
+                assert data_consistent
+            except AssertionError as e:
+                print(f"data: {data}")
+                exception = e
 
     threads = []
-    for i in range(10):
-        thread = Thread(target=access, daemon=True)
-        thread.start()
-        threads.append(thread)
+
+    # Single producer, single consumer
+    writing_thread = Thread(target=write, daemon=True)
+    writing_thread.start()
+    threads.append(writing_thread)
+
+    reading_thread = Thread(target=read, daemon=True)
+    reading_thread.start()
+    threads.append(reading_thread)
 
     for thread in threads:
         thread.join()
         assert not thread.is_alive()
+
+    if exception:
+        raise exception

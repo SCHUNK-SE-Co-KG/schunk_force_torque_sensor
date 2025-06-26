@@ -22,26 +22,30 @@ class FTData(TypedDict):
 class FTDataBuffer(object):
     def __init__(self) -> None:
         self._data = Array(ctypes.c_double, 8)  # for simplicity
-        self._lock: Lock = Lock()
         self._length: int = 29
+        self.seq = ctypes.c_uint64(0)
 
     def __len__(self):
         return self._length
 
     def put(self, data: FTData) -> None:
-        with self._lock:
-            self._data[0] = data["id"]
-            self._data[1] = data["status_bits"]
-            self._data[2] = data["fx"]
-            self._data[3] = data["fy"]
-            self._data[4] = data["fz"]
-            self._data[5] = data["tx"]
-            self._data[6] = data["ty"]
-            self._data[7] = data["tz"]
+        self.seq.value += 1  # make it odd
+        self._data[0] = data["id"]
+        self._data[1] = data["status_bits"]
+        self._data[2] = data["fx"]
+        self._data[3] = data["fy"]
+        self._data[4] = data["fz"]
+        self._data[5] = data["tx"]
+        self._data[6] = data["ty"]
+        self._data[7] = data["tz"]
+        self.seq.value += 1  # make it even
 
     def get(self) -> FTData:
-        with self._lock:
-            return FTData(
+        while True:
+            before = self.seq.value
+            if before % 2 != 0:  # put in progress
+                continue
+            data = FTData(
                 id=int(self._data[0]),
                 status_bits=int(self._data[1]),
                 fx=self._data[2],
@@ -51,6 +55,9 @@ class FTDataBuffer(object):
                 ty=self._data[6],
                 tz=self._data[7],
             )
+            stop = self.seq.value
+            if before == stop:
+                return data
 
     def encode(self, data: FTData) -> bytearray:
         result = bytearray()
