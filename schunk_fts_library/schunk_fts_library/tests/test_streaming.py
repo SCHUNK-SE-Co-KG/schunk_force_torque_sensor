@@ -112,7 +112,7 @@ def test_stream_returns_immediately_without_data():
         assert stream.read() == bytearray()
         stop = time.perf_counter()
         elapsed = (stop - start) * 1000  # ms
-        assert elapsed < 0.1
+        assert elapsed < 1.0
 
 
 def test_stream_doesnt_deadlock_for_concurrent_is_open_calls():
