@@ -31,6 +31,11 @@ class Driver(Node):
         # For force-torque data
         self.callback_group = MutuallyExclusiveCallbackGroup()
 
+        # Parameters
+        self.declare_parameter("host", "192.168.0.100")
+        self.declare_parameter("port", 82)
+        self.declare_parameter("streaming_port", 54843)
+
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_configure() is called.")
         return TransitionCallbackReturn.SUCCESS
