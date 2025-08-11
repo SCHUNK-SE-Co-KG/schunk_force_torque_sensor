@@ -28,3 +28,17 @@ def test_driver_uses_dedicated_callback_group_for_publishing_ft_data(ros2):
 
     driver.on_deactivate(state=None)
     driver.on_cleanup(state=None)
+
+
+def test_driver_uses_library_for_sensor_communication(sensor, ros2):
+    driver = Driver("driver")
+    assert driver.sensor is not None
+
+
+def test_driver_streams_when_configured(sensor, ros2):
+    driver = Driver("driver")
+
+    driver.on_configure(state=None)
+    assert driver.sensor.is_streaming
+    driver.on_cleanup(state=None)
+    assert not driver.sensor.is_streaming

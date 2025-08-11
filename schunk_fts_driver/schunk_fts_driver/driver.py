@@ -21,6 +21,7 @@ from rclpy.executors import MultiThreadedExecutor, ExternalShutdownException
 from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import WrenchStamped
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from schunk_fts_library.driver import Driver as SensorDriver
 
 
 class Driver(Node):
@@ -36,8 +37,17 @@ class Driver(Node):
         self.declare_parameter("port", 82)
         self.declare_parameter("streaming_port", 54843)
 
+        self.sensor: SensorDriver = SensorDriver(
+            host=self.get_parameter("host").value,
+            port=self.get_parameter("port").value,
+            streaming_port=self.get_parameter("streaming_port").value,
+        )
+
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_configure() is called.")
+        if not self.sensor.streaming_on():
+            return TransitionCallbackReturn.FAILURE
+
         return TransitionCallbackReturn.SUCCESS
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
@@ -59,6 +69,7 @@ class Driver(Node):
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_cleanup() is called.")
+        self.sensor.streaming_off()
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: State) -> TransitionCallbackReturn:
