@@ -22,6 +22,8 @@ from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import WrenchStamped
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from schunk_fts_library.driver import Driver as SensorDriver
+from rclpy.timer import Timer
+from functools import partial
 
 
 class Driver(Node):
@@ -41,6 +43,11 @@ class Driver(Node):
             host=self.get_parameter("host").value,
             port=self.get_parameter("port").value,
             streaming_port=self.get_parameter("streaming_port").value,
+        )
+        self.timer: Timer = self.create_timer(
+            timer_period_sec=0.05,
+            callback=partial(self._publish_data),
+            callback_group=self.callback_group,
         )
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
@@ -74,7 +81,11 @@ class Driver(Node):
 
     def on_shutdown(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_shutdown() is called.")
+        self.timer.cancel()
         return SetParametersResult(successful=True)
+
+    def _publish_data(self) -> None:
+        pass
 
 
 def main():

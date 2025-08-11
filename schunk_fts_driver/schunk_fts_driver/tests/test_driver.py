@@ -42,3 +42,21 @@ def test_driver_streams_when_configured(sensor, ros2):
     assert driver.sensor.is_streaming
     driver.on_cleanup(state=None)
     assert not driver.sensor.is_streaming
+
+
+def test_driver_manages_a_timer_for_publishing(sensor, ros2):
+    driver = Driver("driver")
+
+    assert driver.timer is not None
+
+    # Check that we re-use the same timer during lifetime
+    initial_joints_timer = driver.timer
+    for _ in range(3):
+        driver.on_configure(state=None)
+        driver.on_activate(state=None)
+        driver.on_deactivate(state=None)
+        driver.on_cleanup(state=None)
+        assert driver.timer == initial_joints_timer
+
+    driver.on_shutdown(state=None)
+    assert driver.timer.is_canceled()
