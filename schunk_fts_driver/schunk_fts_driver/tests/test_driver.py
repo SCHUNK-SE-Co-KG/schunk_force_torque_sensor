@@ -14,6 +14,8 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 # --------------------------------------------------------------------------------
 from schunk_fts_driver.driver import Driver
+from threading import Thread
+import time
 
 
 def test_driver_uses_dedicated_callback_group_for_publishing_ft_data(ros2):
@@ -60,3 +62,43 @@ def test_driver_manages_a_timer_for_publishing(sensor, ros2):
 
     driver.on_shutdown(state=None)
     assert driver.timer.is_canceled()
+
+
+def test_publisher_variable_always_exists(sensor, ros2):
+    driver = Driver("test_publisher_variable")
+    for _ in range(3):
+        assert driver.ft_data_publisher is None
+        driver.on_configure(state=None)
+        assert driver.ft_data_publisher is None
+
+        driver.on_activate(state=None)
+        assert driver.ft_data_publisher is not None
+
+        driver.on_deactivate(state=None)
+        assert driver.ft_data_publisher is None
+        driver.on_cleanup(state=None)
+        assert driver.ft_data_publisher is None
+
+
+def test_timer_callbacks_dont_collide_with_lifecycle_transitions(sensor, ros2):
+    driver = Driver("test_timer_collisions")
+    driver.on_configure(state=None)
+
+    # Mimic the timers' callbacks by explicitly calling the publish methods
+    done = False
+
+    def stay_busy() -> None:
+        while not done:
+            driver._publish_data()
+
+    timer_thread = Thread(target=stay_busy)
+    timer_thread.start()
+
+    start = time.time()
+    while time.time() < start + 2.0:
+        driver.on_activate(state=None)
+        driver.on_deactivate(state=None)
+    done = True
+
+    timer_thread.join()
+    driver.on_cleanup(state=None)

@@ -24,6 +24,8 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from schunk_fts_library.driver import Driver as SensorDriver
 from rclpy.timer import Timer
 from functools import partial
+from threading import Lock
+from rclpy.publisher import Publisher
 
 
 class Driver(Node):
@@ -44,8 +46,10 @@ class Driver(Node):
             port=self.get_parameter("port").value,
             streaming_port=self.get_parameter("streaming_port").value,
         )
+        self.ft_data_publisher: Publisher | None = None
+        self.timer_lock: Lock = Lock()
         self.timer: Timer = self.create_timer(
-            timer_period_sec=0.05,
+            timer_period_sec=0.001,
             callback=partial(self._publish_data),
             callback_group=self.callback_group,
         )
@@ -71,7 +75,9 @@ class Driver(Node):
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_deactivate() is called.")
 
-        self.destroy_publisher(self.ft_data_publisher)
+        with self.timer_lock:
+            self.destroy_publisher(self.ft_data_publisher)
+            self.ft_data_publisher = None
         return super().on_deactivate(state)
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:
@@ -85,7 +91,20 @@ class Driver(Node):
         return SetParametersResult(successful=True)
 
     def _publish_data(self) -> None:
-        pass
+        msg = WrenchStamped()
+        msg.header.frame_id = self.get_name()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        data = self.sensor.sample()
+        if data:
+            msg.wrench.force.x = data["fx"]
+            msg.wrench.force.y = data["fy"]
+            msg.wrench.force.z = data["fz"]
+            msg.wrench.torque.x = data["tx"]
+            msg.wrench.torque.y = data["ty"]
+            msg.wrench.torque.z = data["tz"]
+        with self.timer_lock:
+            if self.ft_data_publisher:
+                self.ft_data_publisher.publish(msg)
 
 
 def main():

@@ -16,6 +16,10 @@
 
 from lifecycle_msgs.msg import Transition, State
 import time
+import rclpy
+from geometry_msgs.msg import WrenchStamped
+from functools import partial
+import pytest
 
 
 def test_driver_advertises_state_depending_topics(sensor, lifecycle_interface):
@@ -54,3 +58,37 @@ def test_driver_advertises_state_depending_topics(sensor, lifecycle_interface):
         # After cleanup -> unconfigured
         driver.change_state(Transition.TRANSITION_CLEANUP)
         time.sleep(until_change_takes_effect)
+
+
+def test_driver_publishes_force_torque_data(lifecycle_interface):
+    driver = lifecycle_interface
+    driver.change_state(Transition.TRANSITION_CONFIGURE)
+    driver.change_state(Transition.TRANSITION_ACTIVATE)
+    messages = []
+
+    def check_fields(msg: WrenchStamped, messages: list[WrenchStamped]) -> None:
+        messages.append(msg)
+        assert msg.header.stamp
+        assert msg.header.frame_id
+        assert pytest.approx(msg.wrench.force.x) != 0.0
+        assert pytest.approx(msg.wrench.force.y) != 0.0
+        assert pytest.approx(msg.wrench.force.z) != 0.0
+        assert pytest.approx(msg.wrench.torque.x) != 0.0
+        assert pytest.approx(msg.wrench.torque.y) != 0.0
+        assert pytest.approx(msg.wrench.torque.z) != 0.0
+
+    _ = driver.node.create_subscription(
+        WrenchStamped,
+        "/schunk/driver/data",
+        partial(check_fields, messages=messages),
+        1,
+    )
+
+    timeout = time.time() + 1.0
+    while time.time() < timeout and len(messages) == 0:
+        rclpy.spin_once(driver.node, timeout_sec=0.1)
+
+    driver.change_state(Transition.TRANSITION_DEACTIVATE)
+    driver.change_state(Transition.TRANSITION_CLEANUP)
+
+    assert len(messages) >= 1
