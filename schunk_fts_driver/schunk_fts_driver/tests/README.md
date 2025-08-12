@@ -1,6 +1,18 @@
-## Run tests locally
-Inside the driver's package
 
+## Run tests with the FTS dummy
+1. Navigate into the `schunk_fts_dummy` repo and start the dummy with
+    ```bash
+    cargo run
+    ```
+
+2. Set environment variables in the terminals in which you test
+    ```bash
+    export FTS_HOST="127.0.0.1"
+    export FTS_PORT=8082
+    ```
+    The tests will then connect to the FTS dummy.
+
+## Test coverage
 ```bash
 pip install --user pytest coverage
 ```

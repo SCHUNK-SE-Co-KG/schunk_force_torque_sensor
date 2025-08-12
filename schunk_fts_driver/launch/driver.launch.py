@@ -16,17 +16,43 @@
 
 from launch import LaunchDescription  # type: ignore [attr-defined]
 from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+
+host = DeclareLaunchArgument(
+    "host",
+    default_value="192.168.0.100",
+    description="The sensor's TCP/IP host address",
+)
+port = DeclareLaunchArgument(
+    "port",
+    default_value="82",
+    description="The sensor's TCP/IP port",
+)
+streaming_port = DeclareLaunchArgument(
+    "streaming_port",
+    default_value="54843",
+    description="The sensor's UDP/IP streaming port",
+)
+
+args = [host, port, streaming_port]
 
 
 def generate_launch_description():
     return LaunchDescription(
-        [
+        args
+        + [
             Node(
                 package="schunk_fts_driver",
                 namespace="schunk",
                 executable="driver.py",
                 name="driver",
-                respawn=True,
+                parameters=[
+                    {"host": LaunchConfiguration("host")},
+                    {"port": LaunchConfiguration("port")},
+                    {"streaming_port": LaunchConfiguration("streaming_port")},
+                ],
+                respawn=False,
                 output="both",
             )
         ]

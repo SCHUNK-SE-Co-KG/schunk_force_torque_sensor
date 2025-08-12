@@ -1,6 +1,137 @@
 import struct
 import socket
 from socket import socket as Socket
+from threading import Lock
+from typing import TypedDict
+
+from multiprocessing import Array
+import ctypes
+
+
+class FTData(TypedDict):
+    id: int
+    status_bits: int
+    fx: float
+    fy: float
+    fz: float
+    tx: float
+    ty: float
+    tz: float
+
+
+class FTDataBuffer(object):
+    def __init__(self) -> None:
+        self._data = Array(ctypes.c_double, 8)  # for simplicity
+        self._length: int = 29
+        self.seq = ctypes.c_uint64(0)
+
+    def __len__(self):
+        return self._length
+
+    def put(self, data: FTData) -> None:
+        self.seq.value += 1  # make it odd
+        self._data[0] = data["id"]
+        self._data[1] = data["status_bits"]
+        self._data[2] = data["fx"]
+        self._data[3] = data["fy"]
+        self._data[4] = data["fz"]
+        self._data[5] = data["tx"]
+        self._data[6] = data["ty"]
+        self._data[7] = data["tz"]
+        self.seq.value += 1  # make it even
+
+    def get(self) -> FTData:
+        while True:
+            before = self.seq.value
+            if before % 2 != 0:  # put in progress
+                continue
+            data = FTData(
+                id=int(self._data[0]),
+                status_bits=int(self._data[1]),
+                fx=self._data[2],
+                fy=self._data[3],
+                fz=self._data[4],
+                tx=self._data[5],
+                ty=self._data[6],
+                tz=self._data[7],
+            )
+            stop = self.seq.value
+            if before == stop:
+                return data
+
+    def encode(self, data: FTData) -> bytearray:
+        result = bytearray()
+        result.extend(bytes(struct.pack("B", data["id"])))
+        result.extend(bytes(struct.pack("i", data["status_bits"])))
+        result.extend(bytes(struct.pack("f", data["fx"])))
+        result.extend(bytes(struct.pack("f", data["fy"])))
+        result.extend(bytes(struct.pack("f", data["fz"])))
+        result.extend(bytes(struct.pack("f", data["tx"])))
+        result.extend(bytes(struct.pack("f", data["ty"])))
+        result.extend(bytes(struct.pack("f", data["tz"])))
+        return result
+
+    def decode(self, data: bytearray) -> FTData:
+        result = FTData(
+            id=struct.unpack("B", data[0:1])[0],
+            status_bits=struct.unpack("I", data[1:5])[0],
+            fx=struct.unpack("f", data[5:9])[0],
+            fy=struct.unpack("f", data[9:13])[0],
+            fz=struct.unpack("f", data[13:17])[0],
+            tx=struct.unpack("f", data[17:21])[0],
+            ty=struct.unpack("f", data[21:25])[0],
+            tz=struct.unpack("f", data[25:29])[0],
+        )
+        return result
+
+
+class Stream(object):
+    def __init__(self, port: int) -> None:
+        self.port: int = port
+        self._lock: Lock = Lock()
+        self._is_open: bool = False
+        self._reset_socket()
+
+    def is_open(self) -> bool:
+        with self._lock:
+            return self._is_open
+
+    def read(self) -> bytearray:
+        msg = bytearray()
+        if self.is_open():
+            latest_data = None
+            while True:
+                try:
+                    latest_data, _ = self.socket.recvfrom(1024)
+                except BlockingIOError:
+                    break
+            if latest_data:
+                msg.extend(latest_data)
+        return msg
+
+    def __enter__(self) -> "Stream":
+        if self.port < 1024 or self.port > 65535:
+            pass
+        else:
+            if self.socket.fileno() == -1:  # already closed once
+                self._reset_socket()
+            try:
+                self.socket.bind(("127.0.0.1", self.port))
+                with self._lock:
+                    self._is_open = True
+            except OSError as e:
+                print(f"Stream: General socket error: {e}")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        with self._lock:
+            self._is_open = False
+        self.socket.close()
+
+    def _reset_socket(self) -> None:
+        self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.setblocking(False)
 
 
 class Connection(object):
