@@ -22,10 +22,11 @@ from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import WrenchStamped
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from schunk_fts_library.driver import Driver as SensorDriver
-from rclpy.timer import Timer
-from functools import partial
 from threading import Lock
 from rclpy.publisher import Publisher
+from threading import Thread, Event
+import gc as garbage_collector
+import time
 
 
 class Driver(Node):
@@ -47,12 +48,10 @@ class Driver(Node):
             streaming_port=self.get_parameter("streaming_port").value,
         )
         self.ft_data_publisher: Publisher | None = None
-        self.timer_lock: Lock = Lock()
-        self.timer: Timer = self.create_timer(
-            timer_period_sec=0.001,
-            callback=partial(self._publish_data),
-            callback_group=self.callback_group,
-        )
+        self.publisher_lock: Lock = Lock()
+        self.period: float = 0.001  # sec
+        self.thread: Thread = Thread()
+        self.stop_event: Event = Event()
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_configure() is called.")
@@ -63,6 +62,7 @@ class Driver(Node):
 
     def on_activate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_activate() is called.")
+        garbage_collector.disable()
 
         self.ft_data_publisher = self.create_publisher(
             msg_type=WrenchStamped,
@@ -70,14 +70,20 @@ class Driver(Node):
             qos_profile=1,
             callback_group=self.callback_group,
         )
+        self.stop_event.clear()
+        self.thread = Thread(target=self._publish_data)
+        self.thread.start()
         return super().on_activate(state)
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_deactivate() is called.")
+        garbage_collector.enable()
 
-        with self.timer_lock:
+        self.stop_event.set()
+        with self.publisher_lock:
             self.destroy_publisher(self.ft_data_publisher)
             self.ft_data_publisher = None
+        self.thread.join()
         return super().on_deactivate(state)
 
     def on_cleanup(self, state: State) -> TransitionCallbackReturn:
@@ -87,24 +93,31 @@ class Driver(Node):
 
     def on_shutdown(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_shutdown() is called.")
-        self.timer.cancel()
         return SetParametersResult(successful=True)
 
     def _publish_data(self) -> None:
         msg = WrenchStamped()
         msg.header.frame_id = self.get_name()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        data = self.sensor.sample()
-        if data:
-            msg.wrench.force.x = data["fx"]
-            msg.wrench.force.y = data["fy"]
-            msg.wrench.force.z = data["fz"]
-            msg.wrench.torque.x = data["tx"]
-            msg.wrench.torque.y = data["ty"]
-            msg.wrench.torque.z = data["tz"]
-        with self.timer_lock:
-            if self.ft_data_publisher:
-                self.ft_data_publisher.publish(msg)
+        next_time = time.perf_counter()
+
+        while rclpy.ok() and not self.stop_event.is_set():
+            now = time.perf_counter()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            data = self.sensor.sample()
+            if data:
+                msg.wrench.force.x = data["fx"]
+                msg.wrench.force.y = data["fy"]
+                msg.wrench.force.z = data["fz"]
+                msg.wrench.torque.x = data["tx"]
+                msg.wrench.torque.y = data["ty"]
+                msg.wrench.torque.z = data["tz"]
+            if now >= next_time:
+                with self.publisher_lock:
+                    if self.ft_data_publisher:
+                        self.ft_data_publisher.publish(msg)
+                    next_time += self.period
+            else:
+                time.sleep(max(0, next_time - now))
 
 
 def main():
