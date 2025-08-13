@@ -46,24 +46,6 @@ def test_driver_streams_when_configured(sensor, ros2):
     assert not driver.sensor.is_streaming
 
 
-def test_driver_manages_a_timer_for_publishing(sensor, ros2):
-    driver = Driver("driver")
-
-    assert driver.timer is not None
-
-    # Check that we re-use the same timer during lifetime
-    initial_joints_timer = driver.timer
-    for _ in range(3):
-        driver.on_configure(state=None)
-        driver.on_activate(state=None)
-        driver.on_deactivate(state=None)
-        driver.on_cleanup(state=None)
-        assert driver.timer == initial_joints_timer
-
-    driver.on_shutdown(state=None)
-    assert driver.timer.is_canceled()
-
-
 def test_publisher_variable_always_exists(sensor, ros2):
     driver = Driver("test_publisher_variable")
     for _ in range(3):
@@ -80,16 +62,34 @@ def test_publisher_variable_always_exists(sensor, ros2):
         assert driver.ft_data_publisher is None
 
 
-def test_timer_callbacks_dont_collide_with_lifecycle_transitions(sensor, ros2):
-    driver = Driver("test_timer_collisions")
+def test_driver_runs_background_thread_for_publishing(sensor, ros2):
+    driver = Driver("test_background_thread")
+    for i in range(3):
+        assert not driver.thread.is_alive()
+
+        driver.on_configure(state=None)
+        assert not driver.thread.is_alive()
+
+        driver.on_activate(state=None)
+        assert driver.thread.is_alive(), f"run: {i}"
+
+        driver.on_deactivate(state=None)
+        assert not driver.thread.is_alive()
+
+        driver.on_cleanup(state=None)
+        assert not driver.thread.is_alive()
+
+    driver.on_shutdown(state=None)
+    assert not driver.thread.is_alive()
+
+
+def test_publishing_callbacks_dont_collide_with_lifecycle_transitions(sensor, ros2):
+    driver = Driver("test_publishing_collisions")
     driver.on_configure(state=None)
 
     # Mimic the timers' callbacks by explicitly calling the publish methods
-    done = False
-
     def stay_busy() -> None:
-        while not done:
-            driver._publish_data()
+        driver._publish_data()
 
     timer_thread = Thread(target=stay_busy)
     timer_thread.start()
@@ -98,7 +98,6 @@ def test_timer_callbacks_dont_collide_with_lifecycle_transitions(sensor, ros2):
     while time.time() < start + 2.0:
         driver.on_activate(state=None)
         driver.on_deactivate(state=None)
-    done = True
 
     timer_thread.join()
     driver.on_cleanup(state=None)
