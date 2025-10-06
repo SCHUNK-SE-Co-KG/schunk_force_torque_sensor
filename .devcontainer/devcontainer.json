@@ -1,0 +1,34 @@
+{
+  "name": "SCHUNK FTS Dev",
+  "context": "..",
+  "dockerFile": "../Dockerfile",
+  "workspaceFolder": "/workspace/src",
+  "mounts": [
+        {
+            "source": "${localWorkspaceFolder}",
+            "target": "/workspace/src",
+            "type": "bind"
+        }
+  ],
+  "overrideCommand": true,
+  "runArgs": [
+    "--net=host",
+    //"--device=/dev/ttyUSB0",
+    "--env=ROS_LOCALHOST_ONLY=1"
+  ],
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-iot.vscode-ros",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "twxs.cmake",
+        "ms-vscode.cmake-tools",
+        "Graphite.gti-vscode"
+      ]
+    }
+  },
+  "postCreateCommand": "sudo apt update && rosdep update && rosdep install --from-paths /workspace/src --ignore-src -y && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && pip install -e /workspace/src/schunk_fts_driver && pip install -e /workspace/src/schunk_fts_library && pip install pre-commit && git config --global --add safe.directory /workspace/src && pre-commit install && cd /workspace && colcon build",
+  "postStartCommand": "echo 'source /workspace/install/setup.bash' >> ~/.bashrc"
+}

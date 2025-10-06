@@ -10,3 +10,9 @@
 
 # Rust build artifacts
 *target
+
+# Ignore IDE specific files
+.vscode/
+
+# Python bytecode files
+__pycache__/
