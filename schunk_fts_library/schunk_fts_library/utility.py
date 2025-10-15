@@ -4,7 +4,7 @@ from socket import socket as Socket
 from threading import Lock, Event
 from typing import TypedDict
 
-from multiprocessing import Array
+from multiprocessing import Value
 import ctypes
 
 
@@ -20,6 +20,23 @@ class FTData(TypedDict):
     tx: float
     ty: float
     tz: float
+
+
+class _FTDataStruct(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("sync", ctypes.c_uint16),
+        ("counter", ctypes.c_uint16),
+        ("length", ctypes.c_uint16),
+        ("id", ctypes.c_uint8),
+        ("status_bits", ctypes.c_uint32),
+        ("fx", ctypes.c_float),
+        ("fy", ctypes.c_float),
+        ("fz", ctypes.c_float),
+        ("tx", ctypes.c_float),
+        ("ty", ctypes.c_float),
+        ("tz", ctypes.c_float),
+    ]
 
 
 class FTDataBuffer(object):

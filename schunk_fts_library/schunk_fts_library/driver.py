@@ -24,6 +24,8 @@ class Driver(object):
         self.stream: Stream = Stream(port=streaming_port)
         self.stream_update_thread: Thread = Thread()
         self.is_streaming = False
+        self.name = "SCHUNK FTS"  # Placeholder until we can read it from the device
+        self.hardware_id = "unknown"
 
     def streaming_on(self, timeout_sec: float = 0.1) -> bool:
         if self.is_streaming:
@@ -48,6 +50,20 @@ class Driver(object):
             if time.time() > max_duration:
                 self.is_streaming = False
                 return False
+        nameasciistr = self.get_parameter(
+            index="0001", subindex="00"
+        ).param_value  # Product Name Parameter in ASCII
+        self.name = "".join(
+            [
+                chr(int(nameasciistr[i : i + 2], 16))
+                for i in range(0, len(nameasciistr), 2)
+            ]
+        ).strip(
+            "\x00"
+        )  # Convert hex to ASCII and strip null characters
+        self.hardware_id = self.get_parameter(
+            index="0001", subindex="03"
+        ).param_value  # Product ID Parameter
         self.start_udp_stream()
         return True
 
@@ -124,6 +140,15 @@ class Driver(object):
 
     def stop_udp_stream(self) -> CommandResponse:
         return self.run_command("41")
+
+    def get_status(self) -> int:
+        if not self.is_streaming:
+            return -1
+        status = self.sample()
+        if status is None:
+            return -2
+        else:
+            return status["status_bits"]
 
     async def _update(self) -> None:
         with self.stream:

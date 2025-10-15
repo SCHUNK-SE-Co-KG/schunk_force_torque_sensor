@@ -20,6 +20,7 @@ from rclpy.lifecycle import Node, State, TransitionCallbackReturn
 from rclpy.executors import MultiThreadedExecutor, ExternalShutdownException
 from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import WrenchStamped
+from diagnostic_msgs.msg import DiagnosticStatus, KeyValue
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from schunk_fts_library.driver import Driver as SensorDriver
 from threading import Lock
@@ -35,7 +36,9 @@ class Driver(Node):
         super().__init__(node_name, **kwargs)
 
         # For force-torque data
-        self.callback_group = MutuallyExclusiveCallbackGroup()
+        self.data_callback_group = MutuallyExclusiveCallbackGroup()
+        # For sensor state
+        self.state_callback_group = MutuallyExclusiveCallbackGroup()
 
         # Parameters
         self.declare_parameter("host", "0.0.0.0")
@@ -68,7 +71,13 @@ class Driver(Node):
             msg_type=WrenchStamped,
             topic="~/data",
             qos_profile=1,
-            callback_group=self.callback_group,
+            callback_group=self.data_callback_group,
+        )
+        self.ft_state_publisher = self.create_publisher(
+            msg_type=DiagnosticStatus,
+            topic="~/state",
+            qos_profile=1,
+            callback_group=self.state_callback_group,
         )
         self.stop_event.clear()
         self.thread = Thread(target=self._publish_data)
@@ -96,28 +105,63 @@ class Driver(Node):
         return SetParametersResult(successful=True)
 
     def _publish_data(self) -> None:
-        msg = WrenchStamped()
-        msg.header.frame_id = self.get_name()
+        data_msg = WrenchStamped()
+        state_msg = DiagnosticStatus()
+        data_msg.header.frame_id = self.get_name()
+        state_msg.name = self.sensor.name
+        state_msg.hardware_id = self.sensor.hardware_id
+        level, message = self._get_status_level()
+        state_msg.level = level
+        state_msg.message = message
+
         next_time = time.perf_counter()
 
         while rclpy.ok() and not self.stop_event.is_set():
             now = time.perf_counter()
-            msg.header.stamp = self.get_clock().now().to_msg()
+            data_msg.header.stamp = self.get_clock().now().to_msg()
             data = self.sensor.sample()
             if data:
-                msg.wrench.force.x = data["fx"]
-                msg.wrench.force.y = data["fy"]
-                msg.wrench.force.z = data["fz"]
-                msg.wrench.torque.x = data["tx"]
-                msg.wrench.torque.y = data["ty"]
-                msg.wrench.torque.z = data["tz"]
+                data_msg.wrench.force.x = data["fx"]
+                data_msg.wrench.force.y = data["fy"]
+                data_msg.wrench.force.z = data["fz"]
+                data_msg.wrench.torque.x = data["tx"]
+                data_msg.wrench.torque.y = data["ty"]
+                data_msg.wrench.torque.z = data["tz"]
+                state_msg.values = [
+                    KeyValue(key="Packet Counter", value=str(data["counter"]))
+                ]
+
             if now >= next_time:
                 with self.publisher_lock:
                     if self.ft_data_publisher:
-                        self.ft_data_publisher.publish(msg)
+                        self.ft_data_publisher.publish(data_msg)
+                    if self.ft_state_publisher:
+                        self.ft_state_publisher.publish(state_msg)
                     next_time += self.period
             else:
                 time.sleep(max(0, next_time - now))
+
+    def _get_status_level(self) -> tuple[int, str]:
+        level = self.sensor.get_status()
+        match level:
+            case 0:
+                return (DiagnosticStatus.OK, "Ready for Operation")
+            case 1:
+                return (DiagnosticStatus.WARN, "Process Data Invalid")
+            case 2:
+                return (DiagnosticStatus.ERROR, "Temperature Out Of Range")
+            case 3:
+                return (DiagnosticStatus.ERROR, "Hardware Error")
+            case 4:
+                return (DiagnosticStatus.ERROR, "Sensor Not Connected")
+            case 5:
+                return (DiagnosticStatus.WARN, "User-Defined Overrange Limits Exceeded")
+            case None:
+                return (DiagnosticStatus.STALE, "Sensor not connected")
+            case -1:
+                return (DiagnosticStatus.STALE, "Sensor connected but no Data")
+            case _:
+                return (DiagnosticStatus.ERROR, "Unknown Error")
 
 
 def main():
