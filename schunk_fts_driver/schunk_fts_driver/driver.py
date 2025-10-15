@@ -70,6 +70,7 @@ class Driver(Node):
             qos_profile=1,
             callback_group=self.callback_group,
         )
+        self.sensor.start_udp_stream()
         self.stop_event.clear()
         self.thread = Thread(target=self._publish_data)
         self.thread.start()
@@ -79,6 +80,7 @@ class Driver(Node):
         self.get_logger().debug("on_deactivate() is called.")
         garbage_collector.enable()
 
+        self.sensor.stop_udp_stream()
         self.stop_event.set()
         with self.publisher_lock:
             self.destroy_publisher(self.ft_data_publisher)

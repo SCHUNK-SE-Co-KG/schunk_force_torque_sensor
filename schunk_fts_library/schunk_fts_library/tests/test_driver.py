@@ -40,10 +40,10 @@ def test_driver_offers_streaming():
 def test_driver_uses_same_stream_for_multiple_on_calls():
     driver = Driver()
     driver.streaming_on()
-    before = driver.update_thread
+    before = driver.stream_update_thread
     for _ in range(3):
         assert driver.streaming_on()
-        after = driver.update_thread
+        after = driver.stream_update_thread
     assert after == before
 
 
@@ -56,13 +56,13 @@ def test_driver_survives_multiple_streaming_off_calls():
 
 def test_driver_runs_update_thread_when_streaming():
     driver = Driver()
-    assert not driver.update_thread.is_alive()
+    assert not driver.stream_update_thread.is_alive()
 
     for _ in range(3):
         driver.streaming_on()
-        assert driver.update_thread.is_alive()
+        assert driver.stream_update_thread.is_alive()
         driver.streaming_off()
-        assert not driver.update_thread.is_alive()
+        assert not driver.stream_update_thread.is_alive()
 
 
 def test_driver_timeouts_when_streaming_fails():

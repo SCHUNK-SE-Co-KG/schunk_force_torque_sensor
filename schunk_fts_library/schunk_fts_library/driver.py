@@ -1,4 +1,4 @@
-from .utility import (
+from schunk_fts_library.utility import (
     Connection,
     Stream,
     FTData,
@@ -22,7 +22,7 @@ class Driver(object):
         self.connection: Connection = Connection(host=host, port=port)
         self.ft_data: FTDataBuffer = FTDataBuffer()
         self.stream: Stream = Stream(port=streaming_port)
-        self.update_thread: Thread = Thread()
+        self.stream_update_thread: Thread = Thread()
         self.is_streaming = False
 
     def streaming_on(self, timeout_sec: float = 0.1) -> bool:
@@ -30,13 +30,16 @@ class Driver(object):
             return True
         if not isinstance(timeout_sec, float):
             return False
+        if not self.connection.connect():
+            return False
+
         self.is_streaming = True
-        self.update_thread = Thread(
+        self.stream_update_thread = Thread(
             target=asyncio.run,
             args=(self._update(),),
             daemon=True,
         )
-        self.update_thread.start()
+        self.stream_update_thread.start()
         max_duration = time.time() + timeout_sec
         while not self.stream.is_open():
             time.sleep(0.01)
@@ -47,8 +50,9 @@ class Driver(object):
 
     def streaming_off(self) -> None:
         self.is_streaming = False
-        while self.update_thread.is_alive():
-            time.sleep(0.01)
+        if self.stream_update_thread.is_alive():
+            self.stream_update_thread.join()
+        self.connection.disconnect()
 
     def sample(self) -> FTData | None:
         if not self.is_streaming:
@@ -63,10 +67,9 @@ class Driver(object):
         req.param_subindex = subindex
         msg = req.to_bytes()
 
-        with self.connection as sensor:
-            if sensor:
-                sensor.send(msg)
-                data = sensor.receive()
+        if self.connection:
+            self.connection.send(msg)
+            data = self.connection.receive()
 
         response = GetParameterResponse()
         response.from_bytes(data)
@@ -82,10 +85,9 @@ class Driver(object):
         req.param_value = value
         msg = req.to_bytes()
 
-        with self.connection as sensor:
-            if sensor:
-                sensor.send(msg)
-                data = sensor.receive()
+        if self.connection:
+            self.connection.send(msg)
+            data = self.connection.receive()
 
         response = SetParameterResponse()
         response.from_bytes(data)
@@ -96,14 +98,19 @@ class Driver(object):
         req.command_id = command
         msg = req.to_bytes()
 
-        with self.connection as sensor:
-            if sensor:
-                sensor.send(msg)
-                data = sensor.receive()
+        if self.connection:
+            self.connection.send(msg)
+            data = self.connection.receive()
 
         response = CommandResponse()
         response.from_bytes(data)
         return response
+
+    def start_udp_stream(self) -> CommandResponse:
+        return self.run_command("40")
+
+    def stop_udp_stream(self) -> CommandResponse:
+        return self.run_command("41")
 
     async def _update(self) -> None:
         with self.stream:

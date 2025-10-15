@@ -22,7 +22,7 @@ class FTData(TypedDict):
 class FTDataBuffer(object):
     def __init__(self) -> None:
         self._data = Array(ctypes.c_double, 8)  # for simplicity
-        self._length: int = 29
+        self._length: int = 35
         self.seq = ctypes.c_uint64(0)
 
     def __len__(self):
@@ -72,15 +72,18 @@ class FTDataBuffer(object):
         return result
 
     def decode(self, data: bytearray) -> FTData:
+        HEADER_OFFSET = 6
         result = FTData(
-            id=struct.unpack("B", data[0:1])[0],
-            status_bits=struct.unpack("I", data[1:5])[0],
-            fx=struct.unpack("f", data[5:9])[0],
-            fy=struct.unpack("f", data[9:13])[0],
-            fz=struct.unpack("f", data[13:17])[0],
-            tx=struct.unpack("f", data[17:21])[0],
-            ty=struct.unpack("f", data[21:25])[0],
-            tz=struct.unpack("f", data[25:29])[0],
+            id=struct.unpack("<B", data[HEADER_OFFSET + 0 : HEADER_OFFSET + 1])[0],
+            status_bits=struct.unpack(
+                "<I", data[HEADER_OFFSET + 1 : HEADER_OFFSET + 5]
+            )[0],
+            fx=struct.unpack("<f", data[HEADER_OFFSET + 5 : HEADER_OFFSET + 9])[0],
+            fy=struct.unpack("<f", data[HEADER_OFFSET + 9 : HEADER_OFFSET + 13])[0],
+            fz=struct.unpack("<f", data[HEADER_OFFSET + 13 : HEADER_OFFSET + 17])[0],
+            tx=struct.unpack("<f", data[HEADER_OFFSET + 17 : HEADER_OFFSET + 21])[0],
+            ty=struct.unpack("<f", data[HEADER_OFFSET + 21 : HEADER_OFFSET + 25])[0],
+            tz=struct.unpack("<f", data[HEADER_OFFSET + 25 : HEADER_OFFSET + 29])[0],
         )
         return result
 
@@ -116,7 +119,7 @@ class Stream(object):
             if self.socket.fileno() == -1:  # already closed once
                 self._reset_socket()
             try:
-                self.socket.bind(("127.0.0.1", self.port))
+                self.socket.bind(("", self.port))
                 with self._lock:
                     self._is_open = True
             except OSError as e:
@@ -166,29 +169,33 @@ class Connection(object):
     def __bool__(self) -> bool:
         return self.is_connected
 
-    def __enter__(self) -> "Connection":
+    def connect(self) -> bool:
         try:
-            if self.socket.fileno() == -1:  # already closed once
+            if self.socket.fileno() == -1:
                 self._reset_socket()
             self.socket.connect((self.host, self.port))
             self.is_connected = True
-        except socket.gaierror as e:
-            print(f"Connect: Address-related error: {e}")
-        except socket.timeout:
-            print("Connect: Timed out.")
-        except ConnectionRefusedError as e:
-            print(f"Connect: Refused by the server: {e}")
-        except OSError as e:
-            print(f"Connect: General socket error: {e}")
+            return True
+        except (socket.gaierror, socket.timeout, ConnectionRefusedError, OSError) as e:
+            print(f"Connect error: {e}")
+            self.is_connected = False
+            return False
+
+    def disconnect(self) -> None:
+        if self.is_connected:
+            try:
+                self.socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            self.is_connected = False
+            self.socket.close()
+
+    def __enter__(self) -> "Connection":
+        self.connect()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        try:
-            self.socket.shutdown(socket.SHUT_RDWR)
-        except OSError:
-            pass
-        self.is_connected = False
-        self.socket.close()
+        self.disconnect()
 
     def _reset_socket(self) -> None:
         self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
