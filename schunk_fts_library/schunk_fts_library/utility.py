@@ -52,17 +52,17 @@ class FTDataBuffer(object):
         self.seq.value += 1
 
         with self._data.get_lock():
-            self._data.value.sync = struct.unpack("<H", data["sync"])[0]
-            self._data.value.counter = data["counter"]
-            self._data.value.length = data["length"]
-            self._data.value.id = data["id"]
-            self._data.value.status_bits = data["status_bits"]
-            self._data.value.fx = data["fx"]
-            self._data.value.fy = data["fy"]
-            self._data.value.fz = data["fz"]
-            self._data.value.tx = data["tx"]
-            self._data.value.ty = data["ty"]
-            self._data.value.tz = data["tz"]
+            self._data.sync = struct.unpack("<H", data["sync"])[0]
+            self._data.counter = data["counter"]
+            self._data.length = data["length"]
+            self._data.id = data["id"]
+            self._data.status_bits = data["status_bits"]
+            self._data.fx = data["fx"]
+            self._data.fy = data["fy"]
+            self._data.fz = data["fz"]
+            self._data.tx = data["tx"]
+            self._data.ty = data["ty"]
+            self._data.tz = data["tz"]
 
         self.seq.value += 1
 
@@ -73,17 +73,17 @@ class FTDataBuffer(object):
                 continue
 
             with self._data.get_lock():
-                sync = self._data.value.sync
-                counter = self._data.value.counter
-                length = self._data.value.length
-                id_val = self._data.value.id
-                status_bits = self._data.value.status_bits
-                fx = self._data.value.fx
-                fy = self._data.value.fy
-                fz = self._data.value.fz
-                tx = self._data.value.tx
-                ty = self._data.value.ty
-                tz = self._data.value.tz
+                sync = self._data.sync
+                counter = self._data.counter
+                length = self._data.length
+                id_val = self._data.id
+                status_bits = self._data.status_bits
+                fx = self._data.fx
+                fy = self._data.fy
+                fz = self._data.fz
+                tx = self._data.tx
+                ty = self._data.ty
+                tz = self._data.tz
 
             after = self.seq.value
 
