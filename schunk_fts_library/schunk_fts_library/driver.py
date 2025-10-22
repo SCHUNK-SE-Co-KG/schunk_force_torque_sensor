@@ -29,8 +29,10 @@ class Driver(object):
         if self.is_streaming:
             return True
         if not isinstance(timeout_sec, float):
+            self.is_streaming = False
             return False
         if not self.connection.connect():
+            self.is_streaming = False
             return False
 
         self.is_streaming = True
@@ -46,9 +48,11 @@ class Driver(object):
             if time.time() > max_duration:
                 self.is_streaming = False
                 return False
+        self.start_udp_stream()
         return True
 
     def streaming_off(self) -> None:
+        self.stop_udp_stream()
         self.is_streaming = False
         if self.stream_update_thread.is_alive():
             self.stream_update_thread.join()
