@@ -148,7 +148,7 @@ class Stream(object):
         with self._lock:
             return self._is_open
 
-    def read(self) -> bytearray:
+    def read(self) -> bytearray | None:
         msg = bytearray()
         if self.is_open():
             latest_data = None
@@ -157,9 +157,12 @@ class Stream(object):
                     latest_data, _ = self.socket.recvfrom(1024)
                 except BlockingIOError:
                     break
+                except Exception:
+                    return None
             if latest_data:
                 msg.extend(latest_data)
-        return msg
+            return msg
+        return None
 
     def __enter__(self) -> "Stream":
         if self.port < 1024 or self.port > 65535:
@@ -225,10 +228,18 @@ class Connection(object):
             self.socket.connect((self.host, self.port))
             self.is_connected = True
             return True
-        except (socket.gaierror, socket.timeout, ConnectionRefusedError, OSError) as e:
+        except (socket.gaierror, socket.timeout, ConnectionRefusedError) as e:
             print(f"Connect error: {e}")
             self.is_connected = False
             return False
+        except OSError as e:
+            print(f"Connect: General socket error: {e}")
+            if e.errno == 106:
+                self.disconnect()
+                return self.connect()
+            else:
+                self.is_connected = False
+                return False
 
     def disconnect(self) -> None:
         if self.is_connected:

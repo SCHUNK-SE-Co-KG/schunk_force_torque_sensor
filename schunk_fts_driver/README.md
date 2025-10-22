@@ -20,3 +20,10 @@ And with ROS2 services
 ros2 service call /schunk/driver/get_state lifecycle_msgs/srv/GetState '{}'
 ros2 service call /schunk/driver/change_state lifecycle_msgs/srv/ChangeState '{transition: {label: configure}}'  # activate | deactivate etc.
 ```
+
+ROS2 topics
+
+```bash
+ros2 topic echo /schunk/driver/data
+ros2 topic echo --qos-durability transient_local --qos-reliability reliable /schunk/driver/state
+```
