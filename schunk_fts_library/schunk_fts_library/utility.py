@@ -4,11 +4,14 @@ from socket import socket as Socket
 from threading import Lock
 from typing import TypedDict
 
-from multiprocessing import Array
+from multiprocessing import Value
 import ctypes
 
 
 class FTData(TypedDict):
+    sync: bytes
+    counter: int
+    length: int
     id: int
     status_bits: int
     fx: float
@@ -19,61 +22,107 @@ class FTData(TypedDict):
     tz: float
 
 
+class _FTDataStruct(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("sync", ctypes.c_uint16),
+        ("counter", ctypes.c_uint16),
+        ("length", ctypes.c_uint16),
+        ("id", ctypes.c_uint8),
+        ("status_bits", ctypes.c_uint32),
+        ("fx", ctypes.c_float),
+        ("fy", ctypes.c_float),
+        ("fz", ctypes.c_float),
+        ("tx", ctypes.c_float),
+        ("ty", ctypes.c_float),
+        ("tz", ctypes.c_float),
+    ]
+
+
 class FTDataBuffer(object):
     def __init__(self) -> None:
-        self._data = Array(ctypes.c_double, 8)  # for simplicity
-        self._length: int = 35
-        self.seq = ctypes.c_uint64(0)
+        self._data = Value(_FTDataStruct)
+        self.seq = Value("L", 0)
+        self._length = ctypes.sizeof(_FTDataStruct)  # This will be 35
 
     def __len__(self):
         return self._length
 
     def put(self, data: FTData) -> None:
-        self.seq.value += 1  # make it odd
-        self._data[0] = data["id"]
-        self._data[1] = data["status_bits"]
-        self._data[2] = data["fx"]
-        self._data[3] = data["fy"]
-        self._data[4] = data["fz"]
-        self._data[5] = data["tx"]
-        self._data[6] = data["ty"]
-        self._data[7] = data["tz"]
-        self.seq.value += 1  # make it even
+        self.seq.value += 1
+
+        with self._data.get_lock():
+            self._data.sync = struct.unpack("<H", data["sync"])[0]
+            self._data.counter = data["counter"]
+            self._data.length = data["length"]
+            self._data.id = data["id"]
+            self._data.status_bits = data["status_bits"]
+            self._data.fx = data["fx"]
+            self._data.fy = data["fy"]
+            self._data.fz = data["fz"]
+            self._data.tx = data["tx"]
+            self._data.ty = data["ty"]
+            self._data.tz = data["tz"]
+
+        self.seq.value += 1
 
     def get(self) -> FTData:
         while True:
             before = self.seq.value
             if before % 2 != 0:  # put in progress
                 continue
-            data = FTData(
-                id=int(self._data[0]),
-                status_bits=int(self._data[1]),
-                fx=self._data[2],
-                fy=self._data[3],
-                fz=self._data[4],
-                tx=self._data[5],
-                ty=self._data[6],
-                tz=self._data[7],
-            )
-            stop = self.seq.value
-            if before == stop:
-                return data
+
+            with self._data.get_lock():
+                sync = self._data.sync
+                counter = self._data.counter
+                length = self._data.length
+                id_val = self._data.id
+                status_bits = self._data.status_bits
+                fx = self._data.fx
+                fy = self._data.fy
+                fz = self._data.fz
+                tx = self._data.tx
+                ty = self._data.ty
+                tz = self._data.tz
+
+            after = self.seq.value
+
+            if before == after:
+                return FTData(
+                    sync=struct.pack("<H", sync),
+                    counter=counter,
+                    length=length,
+                    id=id_val,
+                    status_bits=status_bits,
+                    fx=fx,
+                    fy=fy,
+                    fz=fz,
+                    tx=tx,
+                    ty=ty,
+                    tz=tz,
+                )
 
     def encode(self, data: FTData) -> bytearray:
         result = bytearray()
-        result.extend(bytes(struct.pack("B", data["id"])))
-        result.extend(bytes(struct.pack("i", data["status_bits"])))
-        result.extend(bytes(struct.pack("f", data["fx"])))
-        result.extend(bytes(struct.pack("f", data["fy"])))
-        result.extend(bytes(struct.pack("f", data["fz"])))
-        result.extend(bytes(struct.pack("f", data["tx"])))
-        result.extend(bytes(struct.pack("f", data["ty"])))
-        result.extend(bytes(struct.pack("f", data["tz"])))
+        result.extend(data["sync"])
+        result.extend(struct.pack("<H", data["counter"]))
+        result.extend(struct.pack("<H", data["length"]))
+        result.extend(struct.pack("<B", data["id"]))
+        result.extend(struct.pack("<I", data["status_bits"]))
+        result.extend(struct.pack("<f", data["fx"]))
+        result.extend(struct.pack("<f", data["fy"]))
+        result.extend(struct.pack("<f", data["fz"]))
+        result.extend(struct.pack("<f", data["tx"]))
+        result.extend(struct.pack("<f", data["ty"]))
+        result.extend(struct.pack("<f", data["tz"]))
         return result
 
     def decode(self, data: bytearray) -> FTData:
         HEADER_OFFSET = 6
         result = FTData(
+            sync=data[0:2],
+            counter=struct.unpack("<H", data[2:4])[0],
+            length=struct.unpack("<H", data[4:6])[0],
             id=struct.unpack("<B", data[HEADER_OFFSET + 0 : HEADER_OFFSET + 1])[0],
             status_bits=struct.unpack(
                 "<I", data[HEADER_OFFSET + 1 : HEADER_OFFSET + 5]
@@ -99,7 +148,7 @@ class Stream(object):
         with self._lock:
             return self._is_open
 
-    def read(self) -> bytearray:
+    def read(self) -> bytearray | None:
         msg = bytearray()
         if self.is_open():
             latest_data = None
@@ -108,9 +157,12 @@ class Stream(object):
                     latest_data, _ = self.socket.recvfrom(1024)
                 except BlockingIOError:
                     break
+                except Exception:
+                    return None
             if latest_data:
                 msg.extend(latest_data)
-        return msg
+            return msg
+        return None
 
     def __enter__(self) -> "Stream":
         if self.port < 1024 or self.port > 65535:
@@ -176,10 +228,18 @@ class Connection(object):
             self.socket.connect((self.host, self.port))
             self.is_connected = True
             return True
-        except (socket.gaierror, socket.timeout, ConnectionRefusedError, OSError) as e:
+        except (socket.gaierror, socket.timeout, ConnectionRefusedError) as e:
             print(f"Connect error: {e}")
             self.is_connected = False
             return False
+        except OSError as e:
+            print(f"Connect: General socket error: {e}")
+            if e.errno == 106:
+                self.disconnect()
+                return self.connect()
+            else:
+                self.is_connected = False
+                return False
 
     def disconnect(self) -> None:
         if self.is_connected:
