@@ -20,6 +20,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     python3-vcstool \
     git \
     socat \
+    ros-humble-example-interfaces \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

@@ -130,7 +130,7 @@ class Stream(object):
         with self._lock:
             return self._is_open
 
-    def read(self) -> bytearray:
+    def read(self) -> bytearray | None:
         msg = bytearray()
         if self.is_open():
             latest_data = None
@@ -139,9 +139,12 @@ class Stream(object):
                     latest_data, _ = self.socket.recvfrom(1024)
                 except BlockingIOError:
                     break
+                except Exception:
+                    return None
             if latest_data:
                 msg.extend(latest_data)
-        return msg
+            return msg
+        return None
 
     def __enter__(self) -> "Stream":
         if self.port < 1024 or self.port > 65535:

@@ -11,7 +11,10 @@
   <depend>launch</depend>
   <depend>launch_ros</depend>
   <depend>schunk_fts_library</depend>
+  <depend>schunk_fts_interfaces</depend>
   <depend>geometry_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>sensor_msgs</depend>
 
 
   <test_depend>launch_pytest</test_depend>

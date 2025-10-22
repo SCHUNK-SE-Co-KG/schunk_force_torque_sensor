@@ -13,6 +13,45 @@ from schunk_fts_library.utility import (
 from threading import Thread
 import asyncio
 import time
+from dataclasses import dataclass
+
+
+@dataclass
+class SensorStatus:
+    ready: bool
+    process_data_invalid: bool
+    temperature_out_of_range: bool
+    hardware_error: bool
+    mech_overrange: bool
+    user_overrange: bool
+
+    @classmethod
+    def from_bits(cls, bits: int) -> "SensorStatus":
+        return cls(
+            ready=bool(bits & (1 << 0)),
+            process_data_invalid=bool(bits & (1 << 1)),
+            temperature_out_of_range=bool(bits & (1 << 2)),
+            hardware_error=bool(bits & (1 << 3)),
+            mech_overrange=bool(bits & (1 << 4)),
+            user_overrange=bool(bits & (1 << 5)),
+        )
+
+    def summary(self) -> list[str]:
+        """Return human-readable descriptions of active flags."""
+        msgs = []
+        if not self.ready:
+            msgs.append("Not ready for operation")
+        if self.process_data_invalid:
+            msgs.append("Process data invalid")
+        if self.temperature_out_of_range:
+            msgs.append("Temperature out of range")
+        if self.hardware_error:
+            msgs.append("Hardware error")
+        if self.mech_overrange:
+            msgs.append("Mechanical overrange")
+        if self.user_overrange:
+            msgs.append("User-defined overrange")
+        return msgs
 
 
 class Driver(object):
@@ -26,6 +65,8 @@ class Driver(object):
         self.is_streaming = False
         self.name = "SCHUNK FTS"  # Placeholder until we can read it from the device
         self.hardware_id = "unknown"
+        self.timeout_sec = 0.1
+        self.received_data = False
 
     def streaming_on(self, timeout_sec: float = 0.1) -> bool:
         if self.is_streaming:
@@ -123,16 +164,13 @@ class Driver(object):
         req = CommandRequest()
         req.command_id = command
         msg = req.to_bytes()
-        data = bytearray()
-
-        with self.connection as sensor:
-            if sensor:
-                sensor.send(msg)
-                data = sensor.receive()
-
         response = CommandResponse()
-        if data:
+
+        if self.connection:
+            self.connection.send(msg)
+            data = self.connection.receive()
             response.from_bytes(data)
+
         return response
 
     def start_udp_stream(self) -> CommandResponse:
@@ -141,19 +179,36 @@ class Driver(object):
     def stop_udp_stream(self) -> CommandResponse:
         return self.run_command("41")
 
-    def get_status(self) -> int:
+    def tare(self) -> CommandResponse:
+        return self.run_command("12")
+
+    def tare_reset(self) -> CommandResponse:
+        return self.run_command("13")
+
+    def get_status(self, status: FTData | None = None) -> SensorStatus | None:
         if not self.is_streaming:
-            return -1
-        status = self.sample()
+            return None
+        status = status or self.sample()
         if status is None:
-            return -2
-        else:
-            return status["status_bits"]
+            return None
+        bits = status["status_bits"]
+        return SensorStatus.from_bits(bits)
 
     async def _update(self) -> None:
         with self.stream:
+            last_packet_time = time.perf_counter()
             while self.is_streaming:
                 packet = self.stream.read()
-                if len(packet) == len(self.ft_data):
-                    values = self.ft_data.decode(packet)
+                if not packet and self.received_data:
+                    now = time.perf_counter()
+                    if now - last_packet_time > self.timeout_sec:
+                        self.is_streaming = False
+                        pass
+                    continue
+                elif len(packet) == len(self.ft_data):  # type: ignore
+                    values = self.ft_data.decode(packet)  # type: ignore
+                    # print(f"Received packet #{values['counter']}")
                     self.ft_data.put(values)
+                    last_packet_time = time.perf_counter()
+                    self.received_data = True
+            await asyncio.sleep(0.0)

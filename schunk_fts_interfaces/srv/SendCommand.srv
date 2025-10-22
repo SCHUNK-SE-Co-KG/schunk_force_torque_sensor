@@ -1,4 +1,4 @@
-# Request: Command ID as a hex string (e.g., "12" for Tare, "40" for Start UDP Stream)
+# Request: Command ID (e.g., "12" for Tare, "40" for Start UDP Stream)
 string command_id
 ---
 # Response

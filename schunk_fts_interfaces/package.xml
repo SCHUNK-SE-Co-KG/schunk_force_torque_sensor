@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>schunk_fts_interfaces</name>
-  <version>0.0.1</version>
+  <version>0.0.0</version>
   <description>Provides interface descriptions to communicate with SCHUNK FTS over ROS 2</description>
   <maintainer email="fabian.reinwald@de.schunk.com">root</maintainer>
   <license>GPL-3.0-or-later</license>
