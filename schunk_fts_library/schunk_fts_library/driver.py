@@ -70,6 +70,7 @@ class Driver(object):
         req.param_index = index
         req.param_subindex = subindex
         msg = req.to_bytes()
+        data = bytearray()
 
         with self.connection as sensor:
             if sensor:
@@ -77,7 +78,8 @@ class Driver(object):
                 data = sensor.receive()
 
         response = GetParameterResponse()
-        response.from_bytes(data)
+        if data:
+            response.from_bytes(data)
         return response
 
     def set_parameter(
@@ -89,6 +91,7 @@ class Driver(object):
         req.param_subindex = subindex
         req.param_value = value
         msg = req.to_bytes()
+        data = bytearray()
 
         with self.connection as sensor:
             if sensor:
@@ -96,13 +99,15 @@ class Driver(object):
                 data = sensor.receive()
 
         response = SetParameterResponse()
-        response.from_bytes(data)
+        if data:
+            response.from_bytes(data)
         return response
 
     def run_command(self, command: str) -> CommandResponse:
         req = CommandRequest()
         req.command_id = command
         msg = req.to_bytes()
+        data = bytearray()
 
         with self.connection as sensor:
             if sensor:
@@ -110,7 +115,8 @@ class Driver(object):
                 data = sensor.receive()
 
         response = CommandResponse()
-        response.from_bytes(data)
+        if data:
+            response.from_bytes(data)
         return response
 
     def start_udp_stream(self) -> CommandResponse:
