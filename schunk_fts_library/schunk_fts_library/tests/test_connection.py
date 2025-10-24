@@ -111,3 +111,25 @@ def test_connection_supports_receiving_data():
     # Not connected
     connection = Connection(host=HOST, port=PORT)
     assert not connection.receive()
+
+
+def test_connection_can_be_opened_and_closed_explicitly():
+
+    # The `with Connection()` context manager is for quick
+    # accesses to the sensor.
+    # The `open()` and `close()` calls are for
+    # explicitly establishing a lasting connection to the sensor.
+
+    connection = Connection(host=HOST, port=PORT)
+    assert connection.open()
+
+    # It's allowed to open repetitively
+    for _ in range(3):
+        assert connection.open()
+
+    # It's allowed to close repetitively
+    for _ in range(3):
+        connection.close()
+
+    # Clean-up
+    connection.close()

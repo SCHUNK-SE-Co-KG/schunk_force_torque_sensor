@@ -31,7 +31,7 @@ class Driver(object):
         if not isinstance(timeout_sec, float):
             self.is_streaming = False
             return False
-        if not self.connection.connect():
+        if not self.connection.open():
             self.is_streaming = False
             return False
 
@@ -56,7 +56,7 @@ class Driver(object):
         self.is_streaming = False
         if self.stream_update_thread.is_alive():
             self.stream_update_thread.join()
-        self.connection.disconnect()
+        self.connection.close()
 
     def sample(self) -> FTData | None:
         if not self.is_streaming:

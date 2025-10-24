@@ -169,7 +169,9 @@ class Connection(object):
     def __bool__(self) -> bool:
         return self.is_connected
 
-    def connect(self) -> bool:
+    def open(self) -> bool:
+        if self.is_connected:
+            return True
         try:
             if self.socket.fileno() == -1:
                 self._reset_socket()
@@ -181,7 +183,7 @@ class Connection(object):
             self.is_connected = False
             return False
 
-    def disconnect(self) -> None:
+    def close(self) -> None:
         if self.is_connected:
             try:
                 self.socket.shutdown(socket.SHUT_RDWR)
@@ -191,11 +193,11 @@ class Connection(object):
             self.socket.close()
 
     def __enter__(self) -> "Connection":
-        self.connect()
+        self.open()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self.disconnect()
+        self.close()
 
     def _reset_socket(self) -> None:
         self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
