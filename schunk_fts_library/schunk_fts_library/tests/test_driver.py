@@ -2,6 +2,10 @@ from schunk_fts_library.driver import Driver
 from schunk_fts_library.utility import Connection, FTDataBuffer
 import time
 import pytest
+import os
+
+HOST = os.getenv("FTS_HOST", "192.168.0.100")
+PORT = int(os.getenv("FTS_PORT", 82))
 
 
 def test_driver_initializes_as_expected():
@@ -23,12 +27,12 @@ def test_driver_initializes_as_expected():
 
 
 def test_driver_offers_streaming():
-    driver = Driver()
+    driver = Driver(host=HOST, port=PORT)
     assert not driver.is_streaming
 
-    for _ in range(3):
+    for run in range(3):
         assert not driver.stream.is_open()
-        assert driver.streaming_on()
+        assert driver.streaming_on(), f"run: {run}"
         assert driver.is_streaming
         assert driver.stream.is_open()
 
@@ -38,7 +42,7 @@ def test_driver_offers_streaming():
 
 
 def test_driver_uses_same_stream_for_multiple_on_calls():
-    driver = Driver()
+    driver = Driver(host=HOST, port=PORT)
     driver.streaming_on()
     before = driver.stream_update_thread
     for _ in range(3):
@@ -55,7 +59,7 @@ def test_driver_survives_multiple_streaming_off_calls():
 
 
 def test_driver_runs_update_thread_when_streaming():
-    driver = Driver()
+    driver = Driver(host=HOST, port=PORT)
     assert not driver.stream_update_thread.is_alive()
 
     for _ in range(3):
@@ -76,7 +80,7 @@ def test_driver_timeouts_when_streaming_fails():
 
 def test_driver_supports_sampling_force_torque_data(send_messages):
     test_port = 8001
-    driver = Driver(streaming_port=test_port)
+    driver = Driver(host=HOST, port=PORT, streaming_port=test_port)
 
     # Not streaming
     assert driver.sample() is None
@@ -85,6 +89,9 @@ def test_driver_supports_sampling_force_torque_data(send_messages):
     # that we sample that.
     assert driver.streaming_on()
     data = {
+        "sync": 0xFFFF,
+        "counter": 42,
+        "payload": 29,
         "id": 1,
         "status_bits": 0x00000000,
         "fx": 1.0,
