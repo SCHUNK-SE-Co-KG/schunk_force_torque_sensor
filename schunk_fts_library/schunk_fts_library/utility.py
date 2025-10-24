@@ -9,6 +9,9 @@ import ctypes
 
 
 class FTData(TypedDict):
+    sync: int
+    counter: int
+    payload: int
     id: int
     status_bits: int
     fx: float
@@ -21,7 +24,7 @@ class FTData(TypedDict):
 
 class FTDataBuffer(object):
     def __init__(self) -> None:
-        self._data = Array(ctypes.c_double, 8)  # for simplicity
+        self._data = Array(ctypes.c_double, 11)  # all equal for simplicity
         self._length: int = 35
         self.seq = ctypes.c_uint64(0)
 
@@ -30,14 +33,17 @@ class FTDataBuffer(object):
 
     def put(self, data: FTData) -> None:
         self.seq.value += 1  # make it odd
-        self._data[0] = data["id"]
-        self._data[1] = data["status_bits"]
-        self._data[2] = data["fx"]
-        self._data[3] = data["fy"]
-        self._data[4] = data["fz"]
-        self._data[5] = data["tx"]
-        self._data[6] = data["ty"]
-        self._data[7] = data["tz"]
+        self._data[0] = data["sync"]
+        self._data[1] = data["counter"]
+        self._data[2] = data["payload"]
+        self._data[3] = data["id"]
+        self._data[4] = data["status_bits"]
+        self._data[5] = data["fx"]
+        self._data[6] = data["fy"]
+        self._data[7] = data["fz"]
+        self._data[8] = data["tx"]
+        self._data[9] = data["ty"]
+        self._data[10] = data["tz"]
         self.seq.value += 1  # make it even
 
     def get(self) -> FTData:
@@ -46,14 +52,17 @@ class FTDataBuffer(object):
             if before % 2 != 0:  # put in progress
                 continue
             data = FTData(
-                id=int(self._data[0]),
-                status_bits=int(self._data[1]),
-                fx=self._data[2],
-                fy=self._data[3],
-                fz=self._data[4],
-                tx=self._data[5],
-                ty=self._data[6],
-                tz=self._data[7],
+                sync=int(self._data[0]),
+                counter=int(self._data[1]),
+                payload=int(self._data[2]),
+                id=int(self._data[3]),
+                status_bits=int(self._data[4]),
+                fx=self._data[5],
+                fy=self._data[6],
+                fz=self._data[7],
+                tx=self._data[8],
+                ty=self._data[9],
+                tz=self._data[10],
             )
             stop = self.seq.value
             if before == stop:
@@ -61,6 +70,9 @@ class FTDataBuffer(object):
 
     def encode(self, data: FTData) -> bytearray:
         result = bytearray()
+        result.extend(bytes(struct.pack("H", data["sync"])))
+        result.extend(bytes(struct.pack("H", data["counter"])))
+        result.extend(bytes(struct.pack("H", data["payload"])))
         result.extend(bytes(struct.pack("B", data["id"])))
         result.extend(bytes(struct.pack("i", data["status_bits"])))
         result.extend(bytes(struct.pack("f", data["fx"])))
@@ -72,18 +84,20 @@ class FTDataBuffer(object):
         return result
 
     def decode(self, data: bytearray) -> FTData:
-        HEADER_OFFSET = 6
+        header = data[:6]
+        payload = data[6:]
         result = FTData(
-            id=struct.unpack("<B", data[HEADER_OFFSET + 0 : HEADER_OFFSET + 1])[0],
-            status_bits=struct.unpack(
-                "<I", data[HEADER_OFFSET + 1 : HEADER_OFFSET + 5]
-            )[0],
-            fx=struct.unpack("<f", data[HEADER_OFFSET + 5 : HEADER_OFFSET + 9])[0],
-            fy=struct.unpack("<f", data[HEADER_OFFSET + 9 : HEADER_OFFSET + 13])[0],
-            fz=struct.unpack("<f", data[HEADER_OFFSET + 13 : HEADER_OFFSET + 17])[0],
-            tx=struct.unpack("<f", data[HEADER_OFFSET + 17 : HEADER_OFFSET + 21])[0],
-            ty=struct.unpack("<f", data[HEADER_OFFSET + 21 : HEADER_OFFSET + 25])[0],
-            tz=struct.unpack("<f", data[HEADER_OFFSET + 25 : HEADER_OFFSET + 29])[0],
+            sync=struct.unpack("<H", header[0:2])[0],
+            counter=struct.unpack("<H", header[2:4])[0],
+            payload=struct.unpack("<H", header[4:6])[0],
+            id=struct.unpack("<B", payload[0:1])[0],
+            status_bits=struct.unpack("<I", payload[1:5])[0],
+            fx=struct.unpack("<f", payload[5:9])[0],
+            fy=struct.unpack("<f", payload[9:13])[0],
+            fz=struct.unpack("<f", payload[13:17])[0],
+            tx=struct.unpack("<f", payload[17:21])[0],
+            ty=struct.unpack("<f", payload[21:25])[0],
+            tz=struct.unpack("<f", payload[25:29])[0],
         )
         return result
 
