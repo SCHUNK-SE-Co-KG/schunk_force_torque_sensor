@@ -1,7 +1,7 @@
 import struct
 import socket
 from socket import socket as Socket
-from threading import Lock
+from threading import Lock, Event
 from typing import TypedDict
 
 from multiprocessing import Array
@@ -144,6 +144,7 @@ class Connection(object):
         self.port = port
         self._reset_socket()
         self.is_connected: bool = False
+        self.persistent: Event = Event()
 
     def send(self, data: bytearray) -> bool:
         if not self.is_connected:
@@ -170,34 +171,45 @@ class Connection(object):
         return self.is_connected
 
     def open(self) -> bool:
+        self.__enter__()
         if self.is_connected:
+            self.persistent.set()
             return True
+        return False
+
+    def close(self) -> None:
+        self.__exit__(None, None, None)
+        self.persistent.clear()
+
+    def __enter__(self) -> "Connection":
+        if self.is_connected:
+            return self
         try:
-            if self.socket.fileno() == -1:
+            if self.socket.fileno() == -1:  # already closed once
                 self._reset_socket()
             self.socket.connect((self.host, self.port))
             self.is_connected = True
-            return True
-        except (socket.gaierror, socket.timeout, ConnectionRefusedError, OSError) as e:
-            print(f"Connect error: {e}")
-            self.is_connected = False
-            return False
+        except socket.gaierror as e:
+            print(f"Connect: Address-related error: {e}")
+        except socket.timeout:
+            print("Connect: Timed out.")
+        except ConnectionRefusedError as e:
+            print(f"Connect: Refused by the server: {e}")
+        except OSError as e:
+            print(f"Connect: General socket error: {e}")
+        return self
 
-    def close(self) -> None:
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        if self.persistent.is_set():
+            return
         if self.is_connected:
             try:
                 self.socket.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
             self.is_connected = False
+            self.persistent.clear()
             self.socket.close()
-
-    def __enter__(self) -> "Connection":
-        self.open()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self.close()
 
     def _reset_socket(self) -> None:
         self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -71,9 +71,10 @@ class Driver(object):
         req.param_subindex = subindex
         msg = req.to_bytes()
 
-        if self.connection:
-            self.connection.send(msg)
-            data = self.connection.receive()
+        with self.connection as sensor:
+            if sensor:
+                sensor.send(msg)
+                data = sensor.receive()
 
         response = GetParameterResponse()
         response.from_bytes(data)
@@ -89,9 +90,10 @@ class Driver(object):
         req.param_value = value
         msg = req.to_bytes()
 
-        if self.connection:
-            self.connection.send(msg)
-            data = self.connection.receive()
+        with self.connection as sensor:
+            if sensor:
+                sensor.send(msg)
+                data = sensor.receive()
 
         response = SetParameterResponse()
         response.from_bytes(data)
@@ -102,9 +104,10 @@ class Driver(object):
         req.command_id = command
         msg = req.to_bytes()
 
-        if self.connection:
-            self.connection.send(msg)
-            data = self.connection.receive()
+        with self.connection as sensor:
+            if sensor:
+                sensor.send(msg)
+                data = sensor.receive()
 
         response = CommandResponse()
         response.from_bytes(data)

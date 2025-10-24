@@ -133,3 +133,27 @@ def test_connection_can_be_opened_and_closed_explicitly():
 
     # Clean-up
     connection.close()
+
+
+def test_leaving_context_manager_keeps_previous_connection_open():
+
+    # This is important to not close a lasting connection
+    # that was previously opened by another thread.
+
+    previous_connection = Connection(host=HOST, port=PORT)
+    previous_connection.open()
+
+    # It's safe to use the context manager here
+    with previous_connection:
+        pass
+
+    assert previous_connection.is_connected
+    previous_connection.close()
+
+    # Explicit `open()` calls overrule the context
+    # manager and need to be closed explicitly
+    with previous_connection:
+        previous_connection.open()
+
+    assert previous_connection.is_connected
+    previous_connection.close()
