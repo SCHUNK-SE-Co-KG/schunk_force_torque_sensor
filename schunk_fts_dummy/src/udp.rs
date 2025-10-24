@@ -7,6 +7,10 @@ pub async fn stream_ft_data() {
     let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
     let target: SocketAddr = "127.0.0.1:54843".parse().unwrap();
 
+    let sync: u16 = 0xFFFF;
+    let mut counter: u16 = 0;
+    let payload_len: u16 = 29;
+
     let mut packet_id: u8 = 0;
 
     let frequency_hz = 8000.0;
@@ -17,7 +21,7 @@ pub async fn stream_ft_data() {
     let f = 1.0; // Hz
 
     loop {
-        let mut buf = BytesMut::with_capacity(29);
+        let mut buf = BytesMut::with_capacity(6 + payload_len as usize);
 
         let elapsed = start_time.elapsed().as_secs_f32();
         let omega = 2.0 * std::f32::consts::PI * f;
@@ -31,6 +35,12 @@ pub async fn stream_ft_data() {
 
         let status_bits: i32 = 0x00000000;
 
+        // header
+        buf.put_u16(sync);
+        buf.put_u16(counter);
+        buf.put_u16(payload_len);
+
+        // payload
         buf.put_u8(packet_id);
         buf.put_i32_le(status_bits);
         buf.put_f32_le(fx);
@@ -45,5 +55,6 @@ pub async fn stream_ft_data() {
 
         while Instant::now() < next_time {}
         next_time += interval;
+        counter = counter.wrapping_add(1);
     }
 }

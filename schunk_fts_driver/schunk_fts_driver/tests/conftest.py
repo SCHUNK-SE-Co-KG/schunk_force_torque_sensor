@@ -33,7 +33,10 @@ def ros2():
 
 
 @launch_pytest.fixture(scope="module")
-def driver(ros2):
+def driver(request, ros2):
+    host = getattr(request.module, "HOST", "0.0.0.0")
+    port = getattr(request.module, "PORT", 8082)
+
     setup = IncludeLaunchDescription(
         PathJoinSubstitution(
             [
@@ -41,7 +44,11 @@ def driver(ros2):
                 "launch",
                 "driver.launch.py",
             ]
-        )
+        ),
+        launch_arguments={
+            "host": str(host),
+            "port": str(port),
+        }.items(),
     )
     return LaunchDescription([setup, launch_pytest.actions.ReadyToTest()])
 

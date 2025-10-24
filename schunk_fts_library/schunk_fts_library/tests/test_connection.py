@@ -111,3 +111,49 @@ def test_connection_supports_receiving_data():
     # Not connected
     connection = Connection(host=HOST, port=PORT)
     assert not connection.receive()
+
+
+def test_connection_can_be_opened_and_closed_explicitly():
+
+    # The `with Connection()` context manager is for quick
+    # accesses to the sensor.
+    # The `open()` and `close()` calls are for
+    # explicitly establishing a lasting connection to the sensor.
+
+    connection = Connection(host=HOST, port=PORT)
+    assert connection.open()
+
+    # It's allowed to open repetitively
+    for _ in range(3):
+        assert connection.open()
+
+    # It's allowed to close repetitively
+    for _ in range(3):
+        connection.close()
+
+    # Clean-up
+    connection.close()
+
+
+def test_leaving_context_manager_keeps_previous_connection_open():
+
+    # This is important to not close a lasting connection
+    # that was previously opened by another thread.
+
+    previous_connection = Connection(host=HOST, port=PORT)
+    previous_connection.open()
+
+    # It's safe to use the context manager here
+    with previous_connection:
+        pass
+
+    assert previous_connection.is_connected
+    previous_connection.close()
+
+    # Explicit `open()` calls overrule the context
+    # manager and need to be closed explicitly
+    with previous_connection:
+        previous_connection.open()
+
+    assert previous_connection.is_connected
+    previous_connection.close()

@@ -18,14 +18,38 @@ def test_buffer_offers_putting_and_getting_data():
     assert pytest.approx(data["tz"]) == 0.0
 
     # Put + get
-    data = FTData(id=0, status_bits=0, fx=1.0, fy=2.0, fz=3.0, tx=4.0, ty=5.0, tz=6.0)
+    data = FTData(
+        sync=0xFFFF,
+        counter=42,
+        payload=29,
+        id=0,
+        status_bits=0,
+        fx=1.0,
+        fy=2.0,
+        fz=3.0,
+        tx=4.0,
+        ty=5.0,
+        tz=6.0,
+    )
     buffer.put(data=data)
     assert buffer.get() == data
 
 
 def test_buffer_supports_encoding_and_decoding():
     buffer = FTDataBuffer()
-    data = FTData(id=0, status_bits=0, fx=1.0, fy=2.0, fz=3.0, tx=4.0, ty=5.0, tz=6.0)
+    data = FTData(
+        sync=0xFFFF,
+        counter=42,
+        payload=29,
+        id=0,
+        status_bits=0,
+        fx=1.0,
+        fy=2.0,
+        fz=3.0,
+        tx=4.0,
+        ty=5.0,
+        tz=6.0,
+    )
     encoded_data = buffer.encode(data)
     assert buffer.decode(encoded_data) == data
 
@@ -40,8 +64,32 @@ def test_buffer_supports_concurrent_accesses():
 
     nr_iterations = 100000
 
-    data0 = FTData(id=0, status_bits=0, fx=0.0, fy=0.0, fz=0.0, tx=0.0, ty=0.0, tz=0.0)
-    data1 = FTData(id=1, status_bits=1, fx=1.1, fy=1.1, fz=1.1, tx=1.1, ty=1.1, tz=1.1)
+    data0 = FTData(
+        sync=0xFFFF,
+        counter=1,
+        payload=29,
+        id=0,
+        status_bits=0,
+        fx=0.0,
+        fy=0.0,
+        fz=0.0,
+        tx=0.0,
+        ty=0.0,
+        tz=0.0,
+    )
+    data1 = FTData(
+        sync=0xFFFF,
+        counter=2,
+        payload=29,
+        id=1,
+        status_bits=1,
+        fx=1.1,
+        fy=1.1,
+        fz=1.1,
+        tx=1.1,
+        ty=1.1,
+        tz=1.1,
+    )
 
     def write():
         for n in range(nr_iterations):

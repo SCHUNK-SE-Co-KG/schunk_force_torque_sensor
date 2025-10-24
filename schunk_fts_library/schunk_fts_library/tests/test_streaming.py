@@ -57,6 +57,9 @@ def test_stream_can_be_reused():
 
 def test_stream_supports_reading_data(send_messages):
     data = {
+        "sync": 0xFFFF,
+        "counter": 42,
+        "payload": 29,
         "id": 1,
         "status_bits": 0x00000000,
         "fx": 1.0,
@@ -88,6 +91,9 @@ def test_stream_returns_only_most_recent_data(send_messages):
         messages.append(
             buffer.encode(
                 data={
+                    "sync": 0xFFFF,
+                    "counter": id,
+                    "payload": 29,
                     "id": id,
                     "status_bits": 0x00000000,
                     "fx": 1.0,
