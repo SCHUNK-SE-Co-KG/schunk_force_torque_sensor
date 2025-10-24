@@ -4,8 +4,8 @@ import time
 import pytest
 import os
 
-HOST = os.getenv("FTS_HOST", "192.168.0.100")
-PORT = int(os.getenv("FTS_PORT", 82))
+HOST = os.getenv("FTS_HOST", "127.0.0.1")
+PORT = int(os.getenv("FTS_PORT", 8082))
 
 
 def test_driver_initializes_as_expected():
