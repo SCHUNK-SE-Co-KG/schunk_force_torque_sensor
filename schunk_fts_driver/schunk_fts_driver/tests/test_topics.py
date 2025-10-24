@@ -20,6 +20,13 @@ import rclpy
 from geometry_msgs.msg import WrenchStamped
 from functools import partial
 import pytest
+import os
+
+# Module-wide settings.
+# The `driver` fixture uses these variables to
+# launch the driver with specific connection settings.
+HOST = os.getenv("FTS_HOST", "192.168.0.100")
+PORT = int(os.getenv("FTS_PORT", 82))
 
 
 def test_driver_advertises_state_depending_topics(sensor, lifecycle_interface):
