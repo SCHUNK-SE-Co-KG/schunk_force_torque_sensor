@@ -32,6 +32,7 @@ from threading import Thread, Event
 import gc as garbage_collector
 import time
 from example_interfaces.srv import Trigger
+import select
 
 from schunk_fts_interfaces.srv import (  # type: ignore [attr-defined]
     SendCommand,
@@ -102,11 +103,11 @@ class Driver(Node):
         self.reset_tare_service: Service | None = None
 
         self._last_state_level = None
-        self._base_stamp = None
-        self._last_conter = -1
-        self._is_sensor_ok = False
-
-        self._last_data = None
+        self._base_stamp_ros = None
+        self._base_stamp_ns: int = 0
+        self._last_counter: int = -1
+        self._base_counter: int = -1
+        self._is_sensor_ok: bool = False
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_configure() is called.")
@@ -216,53 +217,72 @@ class Driver(Node):
         state_msg.name = self.sensor.name
         state_msg.hardware_id = self.sensor.hardware_id
 
-        next_time = time.perf_counter()
-
         while rclpy.ok() and not self.stop_event.is_set():
-            now = time.perf_counter()
-
             data = self.sensor.sample()
+            t0 = time.perf_counter_ns()
+            counter = data["counter"]  # type: ignore
+
+            if counter == self._last_counter:
+                print("!!! Consumer WARNING: Duplicate packet received, skipping.")
+                select.select([], [], [], 0)  # release GIL
+                continue
+            t1 = time.perf_counter_ns()
+
+            if self._last_counter != -1 and counter != (self._last_counter + 1) % 65536:
+                packets_skipped = (counter - self._last_counter - 1 + 65536) % 65536
+                print(
+                    f"!!! Consumer WARNING: Loop is too slow! "
+                    f"Skipped {packets_skipped} packets. "
+                    f"(Last: {self._last_counter}, New: {counter})"
+                )
+            t2 = time.perf_counter_ns()
+            self._last_counter = counter
+
             level, message = self._get_status_level(data)
             self._is_sensor_ok = level == DiagnosticStatus.OK
-
+            t3 = time.perf_counter_ns()
             if self._is_sensor_ok:
-                if not data or data == self._last_data:
-                    time.sleep(0.0001)
-                    continue
-                self._last_data = data  # type: ignore
-                counter = data["counter"]
+                if self._base_stamp_ros is None or counter < self._last_counter:
+                    self._base_stamp_ros = self.get_clock().now()
+                    self._base_stamp_ns = (
+                        self._base_stamp_ros.nanoseconds  # type: ignore
+                    )
+                    self._base_counter = counter
+                t4 = time.perf_counter_ns()
 
-                if self._base_stamp is None or counter < self._last_conter:
-                    self._base_stamp = self.get_clock().now()
+                counter_delta = counter - self._base_counter
+                current_stamp_ns = self._base_stamp_ns + (counter_delta * 1_000_000)
 
-                offset_ns = (
-                    counter * 1000 * 1000
-                )  # microseconds sampling period (1 kHz)
-                offset_duration = rclpy.duration.Duration(nanoseconds=offset_ns)
-                stamp = self._base_stamp + offset_duration
-                data_msg.header.stamp = stamp.to_msg()
-                self._last_conter = counter
+                data_msg.header.stamp.sec = current_stamp_ns // 1_000_000_000
+                data_msg.header.stamp.nanosec = current_stamp_ns % 1_000_000_000
+                t5 = time.perf_counter_ns()
+                data_msg.wrench.force.x = data["fx"]  # type: ignore
+                data_msg.wrench.force.y = data["fy"]  # type: ignore
+                data_msg.wrench.force.z = data["fz"]  # type: ignore
+                data_msg.wrench.torque.x = data["tx"]  # type: ignore
+                data_msg.wrench.torque.y = data["ty"]  # type: ignore
+                data_msg.wrench.torque.z = data["tz"]  # type: ignore
+                t6 = time.perf_counter_ns()
 
-                data_msg.wrench.force.x = data["fx"]
-                data_msg.wrench.force.y = data["fy"]
-                data_msg.wrench.force.z = data["fz"]
-                data_msg.wrench.torque.x = data["tx"]
-                data_msg.wrench.torque.y = data["ty"]
-                data_msg.wrench.torque.z = data["tz"]
+            print(
+                f"Timing (µs): "
+                f"sample={ (t1 - t0) / 1000 :.2f}, "
+                f"check_dup={ (t2 - t1) / 1000 :.2f}, "
+                f"status={ (t3 - t2) / 1000 :.2f}, "
+                f"timestamp={ (t4 - t3) / 1000 :.2f}, "
+                f"stamp_calc={ (t5 - t4) / 1000 :.2f}, "
+                f"populate_msg={ (t6 - t5) / 1000 :.2f}"
+                f"total={ (t6 - t0) / 1000 :.2f}"
+            )
 
-            if now >= next_time:
-                with self.publisher_lock:
-                    if self.ft_data_publisher and self._is_sensor_ok:
-                        self.ft_data_publisher.publish(data_msg)
-                    if self.ft_state_publisher:
-                        if level != self._last_state_level:
-                            state_msg.level = level
-                            state_msg.message = message
-                            self._last_state_level = level  # type: ignore
-                            self.ft_state_publisher.publish(state_msg)
-                    next_time += self.period
-            else:
-                time.sleep(max(0, next_time - now))
+            with self.publisher_lock:
+                if self.ft_data_publisher and self._is_sensor_ok:
+                    self.ft_data_publisher.publish(data_msg)
+                if self.ft_state_publisher and level != self._last_state_level:
+                    state_msg.level = level
+                    state_msg.message = message
+                    self._last_state_level = level  # type: ignore
+                    self.ft_state_publisher.publish(state_msg)
 
     def _get_status_level(self, data: FTData | None = None) -> tuple[int, str]:
         status = self.sensor.get_status(data)
