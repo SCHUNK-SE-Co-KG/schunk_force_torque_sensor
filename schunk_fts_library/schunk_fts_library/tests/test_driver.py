@@ -16,7 +16,7 @@ def test_driver_initializes_as_expected():
     assert isinstance(driver.connection, Connection)
     assert driver.connection.host == "192.168.0.100"
     assert driver.connection.port == 82
-    assert not driver.connection.is_connected
+    assert not driver.connection.is_open
 
     # With arguments
     host = "some-arbitrary string $\n#^^"

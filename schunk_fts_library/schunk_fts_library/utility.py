@@ -157,11 +157,11 @@ class Connection(object):
         self.host = host
         self.port = port
         self._reset_socket()
-        self.is_connected: bool = False
+        self.is_open: bool = False
         self.persistent: Event = Event()
 
     def send(self, data: bytearray) -> bool:
-        if not self.is_connected:
+        if not self.is_open:
             return False
         try:
             self.socket.sendall(data)
@@ -176,17 +176,17 @@ class Connection(object):
 
     def receive(self) -> bytearray:
         data = bytearray()
-        if not self.is_connected:
+        if not self.is_open:
             return data
         data = bytearray(self.socket.recv(1024))
         return data
 
     def __bool__(self) -> bool:
-        return self.is_connected
+        return self.is_open
 
     def open(self) -> bool:
         self.__enter__()
-        if self.is_connected:
+        if self.is_open:
             self.persistent.set()
             return True
         return False
@@ -196,13 +196,13 @@ class Connection(object):
         self.persistent.clear()
 
     def __enter__(self) -> "Connection":
-        if self.is_connected:
+        if self.is_open:
             return self
         try:
             if self.socket.fileno() == -1:  # already closed once
                 self._reset_socket()
             self.socket.connect((self.host, self.port))
-            self.is_connected = True
+            self.is_open = True
         except socket.gaierror as e:
             print(f"Connect: Address-related error: {e}")
         except socket.timeout:
@@ -216,12 +216,12 @@ class Connection(object):
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         if self.persistent.is_set():
             return
-        if self.is_connected:
+        if self.is_open:
             try:
                 self.socket.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
-            self.is_connected = False
+            self.is_open = False
             self.persistent.clear()
             self.socket.close()
 

@@ -15,7 +15,7 @@ def test_connection_has_expected_fields():
 def test_connection_succeeds_with_valid_arguments(sensor):
     for _ in range(3):
         with Connection(host=HOST, port=PORT) as connection:
-            assert connection.is_connected
+            assert connection.is_open
 
 
 def test_connection_handles_invalid_arguments():
@@ -26,7 +26,7 @@ def test_connection_handles_invalid_arguments():
     ]
     for arg in invalid_args:
         with Connection(host=arg["host"], port=arg["port"]) as connection:
-            assert not connection.is_connected
+            assert not connection.is_open
 
 
 def test_connection_closes_socket_on_exit():
@@ -96,12 +96,12 @@ def test_connection_handles_exceptions_when_sending():
 
     # Provoke broken pipe
     connection = Connection(host=HOST, port=PORT)
-    connection.is_connected = True
+    connection.is_open = True
     assert not connection.send(data=bytearray())
 
     # Provoke bad file descriptor
     connection = Connection(host=HOST, port=PORT)
-    connection.is_connected = True
+    connection.is_open = True
     connection.socket.close()
     assert not connection.send(data=bytearray())
 
@@ -147,7 +147,7 @@ def test_leaving_context_manager_keeps_previous_connection_open():
     with previous_connection:
         pass
 
-    assert previous_connection.is_connected
+    assert previous_connection.is_open
     previous_connection.close()
 
     # Explicit `open()` calls overrule the context
@@ -155,5 +155,5 @@ def test_leaving_context_manager_keeps_previous_connection_open():
     with previous_connection:
         previous_connection.open()
 
-    assert previous_connection.is_connected
+    assert previous_connection.is_open
     previous_connection.close()
