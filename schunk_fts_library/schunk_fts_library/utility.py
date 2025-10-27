@@ -3,8 +3,8 @@ import socket
 from socket import socket as Socket
 from threading import Lock, Event
 from typing import TypedDict
-
-import ctypes
+import time
+from queue import Queue, Empty, Full
 
 
 class FTData(TypedDict):
@@ -21,103 +21,61 @@ class FTData(TypedDict):
     tz: float
 
 
-class _FTDataStruct(ctypes.Structure):
-    _pack_ = 1
-    _fields_ = [
-        ("sync", ctypes.c_uint16),
-        ("counter", ctypes.c_uint16),
-        ("length", ctypes.c_uint16),
-        ("id", ctypes.c_uint8),
-        ("status_bits", ctypes.c_uint32),
-        ("fx", ctypes.c_float),
-        ("fy", ctypes.c_float),
-        ("fz", ctypes.c_float),
-        ("tx", ctypes.c_float),
-        ("ty", ctypes.c_float),
-        ("tz", ctypes.c_float),
-    ]
-
-
 class FTDataBuffer(object):
-    def __init__(self) -> None:
-        self._data = Array(ctypes.c_double, 11)  # all equal for simplicity
-        self._length: int = 35
-        self.seq = ctypes.c_uint64(0)
+    def __init__(self, maxsize=100) -> None:
+        self._queue: Queue[FTData] = Queue(maxsize=maxsize)
+        self._last_packet_time = time.monotonic()
 
     def __len__(self):
         return self._length
 
-    def put(self, data: FTData) -> None:
-        self.seq.value += 1  # make it odd
-        self._data[0] = data["sync"]
-        self._data[1] = data["counter"]
-        self._data[2] = data["payload"]
-        self._data[3] = data["id"]
-        self._data[4] = data["status_bits"]
-        self._data[5] = data["fx"]
-        self._data[6] = data["fy"]
-        self._data[7] = data["fz"]
-        self._data[8] = data["tx"]
-        self._data[9] = data["ty"]
-        self._data[10] = data["tz"]
-        self.seq.value += 1  # make it even
+    def put(self, packet: bytearray) -> None:
+        try:
+            self._queue.put_nowait(packet)
+        except Full:
+            print("FTDataBuffer: Buffer full, dropping packet")
+            pass
 
-    def get(self) -> FTData:
-        local_buffer = (ctypes.c_char * self._length)()
+    def get(self) -> FTData | None:
+        try:
+            packet = self._queue.get(timeout=0.1)
+            self._last_packet_time = time.monotonic()
+            return self.decode(packet)
+        except Empty:
+            if (
+                time.monotonic() - self._last_packet_time > 0.2
+            ):  # return empty FTData to indicate no signal
+                print("FTDataBuffer: No data received anymore")
+                return FTData(
+                    sync=b"",
+                    counter=0,
+                    length=0,
+                    id=0,
+                    status_bits=0,
+                    fx=0.0,
+                    fy=0.0,
+                    fz=0.0,
+                    tx=0.0,
+                    ty=0.0,
+                    tz=0.0,
+                )
+            return None
 
-        while True:
-            with self._seq_lock:
-                before = self._seq
-
-            if before % 2 != 0:  # data is being written
-                continue
-            data = FTData(
-                sync=int(self._data[0]),
-                counter=int(self._data[1]),
-                payload=int(self._data[2]),
-                id=int(self._data[3]),
-                status_bits=int(self._data[4]),
-                fx=self._data[5],
-                fy=self._data[6],
-                fz=self._data[7],
-                tx=self._data[8],
-                ty=self._data[9],
-                tz=self._data[10],
-            )
-            stop = self.seq.value
-            if before == stop:
-                return data
-
-    def encode(self, data: FTData) -> bytearray:
-        result = bytearray()
-        result.extend(bytes(struct.pack("H", data["sync"])))
-        result.extend(bytes(struct.pack("H", data["counter"])))
-        result.extend(bytes(struct.pack("H", data["payload"])))
-        result.extend(bytes(struct.pack("B", data["id"])))
-        result.extend(bytes(struct.pack("i", data["status_bits"])))
-        result.extend(bytes(struct.pack("f", data["fx"])))
-        result.extend(bytes(struct.pack("f", data["fy"])))
-        result.extend(bytes(struct.pack("f", data["fz"])))
-        result.extend(bytes(struct.pack("f", data["tx"])))
-        result.extend(bytes(struct.pack("f", data["ty"])))
-        result.extend(bytes(struct.pack("f", data["tz"])))
-        return result
-
-    def decode(self, data: bytearray) -> FTData:
-        header = data[:6]
-        payload = data[6:]
-        result = FTData(
-            sync=struct.unpack("<H", header[0:2])[0],
-            counter=struct.unpack("<H", header[2:4])[0],
-            payload=struct.unpack("<H", header[4:6])[0],
-            id=struct.unpack("<B", payload[0:1])[0],
-            status_bits=struct.unpack("<I", payload[1:5])[0],
-            fx=struct.unpack("<f", payload[5:9])[0],
-            fy=struct.unpack("<f", payload[9:13])[0],
-            fz=struct.unpack("<f", payload[13:17])[0],
-            tx=struct.unpack("<f", payload[17:21])[0],
-            ty=struct.unpack("<f", payload[21:25])[0],
-            tz=struct.unpack("<f", payload[25:29])[0],
+    @staticmethod
+    def decode(data: bytearray) -> FTData:
+        values = struct.unpack("<HHB I ffffff", data[2:])  # skip sync (first 2 bytes)
+        return FTData(
+            sync=data[0:2],
+            counter=values[0],
+            length=values[1],
+            id=values[2],
+            status_bits=values[3],
+            fx=values[4],
+            fy=values[5],
+            fz=values[6],
+            tx=values[7],
+            ty=values[8],
+            tz=values[9],
         )
 
 

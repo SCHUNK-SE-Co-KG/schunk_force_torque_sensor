@@ -218,48 +218,12 @@ class Driver(object):
                     try:
                         current_counter = struct.unpack_from("<H", packet, 2)[0]
                     except (struct.error, IndexError):
-                        print(
-                            f"Producer: Received malformed "
-                            f"packet of length {len(packet)}"
-                        )
                         continue
-
-                    if self.last_producer_counter != -1:
-                        if current_counter == self.last_producer_counter:
-                            print(
-                                f"!!! Producer WARNING: "
-                                f"Duplicate counter received: {current_counter}"
-                            )
-                        elif (
-                            current_counter != (self.last_producer_counter + 1) % 65536
-                        ):
-                            print(
-                                f"!!! Producer WARNING: Skipped counter! "
-                                f"Last: {self.last_producer_counter}, "
-                                f"New: {current_counter}"
-                            )
 
                     self.last_producer_counter = current_counter
 
                     # Put the valid packet into our high-speed buffer.
                     self.ft_data.put(packet)
-
-                # --- Logging and state updates outside the for-loop ---
-                last_packet_time = time.perf_counter()
-                self.received_data = True
-
-                # Log frequency less often now
-                if self.producer_packet_count >= 1000:
-                    now = time.perf_counter()
-                    elapsed = now - self.producer_start_time
-                    avg_freq = self.producer_packet_count / elapsed
-                    print(
-                        f"Producer: Processed {self.producer_packet_count} packets. "
-                        f"Avg Freq: {avg_freq:.2f} Hz. "
-                        f"Last counter: {self.last_producer_counter}"
-                    )
-                    self.producer_packet_count = 0
-                    self.producer_start_time = now
 
                 # Yield control to the event loop.
                 await asyncio.sleep(0.0)
