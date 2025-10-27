@@ -31,7 +31,7 @@ class Driver(object):
         if not isinstance(timeout_sec, float):
             self.is_streaming = False
             return False
-        if not self.connection.connect():
+        if not self.connection.open():
             self.is_streaming = False
             return False
 
@@ -56,7 +56,7 @@ class Driver(object):
         self.is_streaming = False
         if self.stream_update_thread.is_alive():
             self.stream_update_thread.join()
-        self.connection.disconnect()
+        self.connection.close()
 
     def sample(self) -> FTData | None:
         if not self.is_streaming:
@@ -70,13 +70,16 @@ class Driver(object):
         req.param_index = index
         req.param_subindex = subindex
         msg = req.to_bytes()
+        data = bytearray()
 
-        if self.connection:
-            self.connection.send(msg)
-            data = self.connection.receive()
+        with self.connection as sensor:
+            if sensor:
+                sensor.send(msg)
+                data = sensor.receive()
 
         response = GetParameterResponse()
-        response.from_bytes(data)
+        if data:
+            response.from_bytes(data)
         return response
 
     def set_parameter(
@@ -88,26 +91,32 @@ class Driver(object):
         req.param_subindex = subindex
         req.param_value = value
         msg = req.to_bytes()
+        data = bytearray()
 
-        if self.connection:
-            self.connection.send(msg)
-            data = self.connection.receive()
+        with self.connection as sensor:
+            if sensor:
+                sensor.send(msg)
+                data = sensor.receive()
 
         response = SetParameterResponse()
-        response.from_bytes(data)
+        if data:
+            response.from_bytes(data)
         return response
 
     def run_command(self, command: str) -> CommandResponse:
         req = CommandRequest()
         req.command_id = command
         msg = req.to_bytes()
+        data = bytearray()
 
-        if self.connection:
-            self.connection.send(msg)
-            data = self.connection.receive()
+        with self.connection as sensor:
+            if sensor:
+                sensor.send(msg)
+                data = sensor.receive()
 
         response = CommandResponse()
-        response.from_bytes(data)
+        if data:
+            response.from_bytes(data)
         return response
 
     def start_udp_stream(self) -> CommandResponse:

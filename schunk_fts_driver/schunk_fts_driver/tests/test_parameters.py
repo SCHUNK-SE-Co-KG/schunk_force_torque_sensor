@@ -17,6 +17,13 @@ import rclpy
 from rclpy.node import Node
 from rcl_interfaces.srv import GetParameters, SetParameters, ListParameters
 from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
+import os
+
+# Module-wide settings.
+# The `driver` fixture uses these variables to
+# launch the driver with specific connection settings.
+HOST = os.getenv("FTS_HOST", "192.168.0.100")
+PORT = int(os.getenv("FTS_PORT", 82))
 
 
 DRIVER_PARAMETERS = [
@@ -51,13 +58,13 @@ def test_driver_has_expected_parameters_after_startup(driver):
         Parameter(
             name="host",
             value=ParameterValue(
-                type=ParameterType.PARAMETER_STRING, string_value="192.168.0.100"
+                type=ParameterType.PARAMETER_STRING, string_value=HOST
             ),
         ),
         Parameter(
             name="port",
             value=ParameterValue(
-                type=ParameterType.PARAMETER_INTEGER, integer_value=82
+                type=ParameterType.PARAMETER_INTEGER, integer_value=PORT
             ),
         ),
         Parameter(

@@ -15,7 +15,7 @@ def test_connection_has_expected_fields():
 def test_connection_succeeds_with_valid_arguments(sensor):
     for _ in range(3):
         with Connection(host=HOST, port=PORT) as connection:
-            assert connection.is_connected
+            assert connection.is_open
 
 
 def test_connection_handles_invalid_arguments():
@@ -26,7 +26,7 @@ def test_connection_handles_invalid_arguments():
     ]
     for arg in invalid_args:
         with Connection(host=arg["host"], port=arg["port"]) as connection:
-            assert not connection.is_connected
+            assert not connection.is_open
 
 
 def test_connection_closes_socket_on_exit():
@@ -96,12 +96,12 @@ def test_connection_handles_exceptions_when_sending():
 
     # Provoke broken pipe
     connection = Connection(host=HOST, port=PORT)
-    connection.is_connected = True
+    connection.is_open = True
     assert not connection.send(data=bytearray())
 
     # Provoke bad file descriptor
     connection = Connection(host=HOST, port=PORT)
-    connection.is_connected = True
+    connection.is_open = True
     connection.socket.close()
     assert not connection.send(data=bytearray())
 
@@ -111,3 +111,49 @@ def test_connection_supports_receiving_data():
     # Not connected
     connection = Connection(host=HOST, port=PORT)
     assert not connection.receive()
+
+
+def test_connection_can_be_opened_and_closed_explicitly():
+
+    # The `with Connection()` context manager is for quick
+    # accesses to the sensor.
+    # The `open()` and `close()` calls are for
+    # explicitly establishing a lasting connection to the sensor.
+
+    connection = Connection(host=HOST, port=PORT)
+    assert connection.open()
+
+    # It's allowed to open repetitively
+    for _ in range(3):
+        assert connection.open()
+
+    # It's allowed to close repetitively
+    for _ in range(3):
+        connection.close()
+
+    # Clean-up
+    connection.close()
+
+
+def test_leaving_context_manager_keeps_previous_connection_open():
+
+    # This is important to not close a lasting connection
+    # that was previously opened by another thread.
+
+    previous_connection = Connection(host=HOST, port=PORT)
+    previous_connection.open()
+
+    # It's safe to use the context manager here
+    with previous_connection:
+        pass
+
+    assert previous_connection.is_open
+    previous_connection.close()
+
+    # Explicit `open()` calls overrule the context
+    # manager and need to be closed explicitly
+    with previous_connection:
+        previous_connection.open()
+
+    assert previous_connection.is_open
+    previous_connection.close()

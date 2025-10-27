@@ -1,4 +1,5 @@
 from schunk_fts_library.driver import Driver
+from schunk_fts_library.utility import GetParameterResponse, SetParameterResponse
 import os
 
 HOST = os.getenv("FTS_HOST", "192.168.0.100")
@@ -14,6 +15,12 @@ def test_driver_offers_getting_parameters(sensor):
     assert response.error_code == "00"
     assert response.param_value == expected_value
 
+    # When not connected
+    wrong_port = 1234
+    driver = Driver(host=HOST, port=wrong_port)
+    response = driver.get_parameter(index="0001")
+    assert response == GetParameterResponse()
+
 
 def test_driver_offers_setting_parameters(sensor):
     driver = Driver(host=HOST, port=PORT)
@@ -22,3 +29,9 @@ def test_driver_offers_setting_parameters(sensor):
     expected_value = "00"
     response = driver.set_parameter(value=expected_value, index=param)
     assert response.error_code == expected_value
+
+    # When not connected
+    wrong_port = 1234
+    driver = Driver(host=HOST, port=wrong_port)
+    response = driver.set_parameter(value=expected_value, index=param)
+    assert response == SetParameterResponse()
