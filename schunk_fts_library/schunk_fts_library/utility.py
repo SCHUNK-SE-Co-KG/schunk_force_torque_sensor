@@ -4,7 +4,6 @@ from socket import socket as Socket
 from threading import Lock, Event
 from typing import TypedDict
 
-from multiprocessing import Value
 import ctypes
 
 
@@ -64,9 +63,13 @@ class FTDataBuffer(object):
         self.seq.value += 1  # make it even
 
     def get(self) -> FTData:
+        local_buffer = (ctypes.c_char * self._length)()
+
         while True:
-            before = self.seq.value
-            if before % 2 != 0:  # put in progress
+            with self._seq_lock:
+                before = self._seq
+
+            if before % 2 != 0:  # data is being written
                 continue
             data = FTData(
                 sync=int(self._data[0]),
@@ -116,7 +119,6 @@ class FTDataBuffer(object):
             ty=struct.unpack("<f", payload[21:25])[0],
             tz=struct.unpack("<f", payload[25:29])[0],
         )
-        return result
 
 
 class Stream(object):
@@ -130,21 +132,18 @@ class Stream(object):
         with self._lock:
             return self._is_open
 
-    def read(self) -> bytearray | None:
-        msg = bytearray()
+    def read(self) -> list[bytes]:
+        packets = []
         if self.is_open():
-            latest_data = None
             while True:
                 try:
-                    latest_data, _ = self.socket.recvfrom(1024)
+                    data, _ = self.socket.recvfrom(1024)
+                    packets.append(data)
                 except BlockingIOError:
                     break
                 except Exception:
-                    return None
-            if latest_data:
-                msg.extend(latest_data)
-            return msg
-        return None
+                    break
+        return packets
 
     def __enter__(self) -> "Stream":
         if self.port < 1024 or self.port > 65535:
