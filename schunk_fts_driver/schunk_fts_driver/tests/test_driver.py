@@ -26,7 +26,7 @@ def test_driver_uses_dedicated_callback_group_for_publishing_ft_data(ros2):
 
     for handler in driver.ft_data_publisher.event_handlers:
         assert handler.callback_group != driver.default_callback_group
-        assert handler.callback_group == driver.callback_group
+        assert handler.callback_group == driver.data_callback_group
 
     driver.on_deactivate(state=None)
     driver.on_cleanup(state=None)
