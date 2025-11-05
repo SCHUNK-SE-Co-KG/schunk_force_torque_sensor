@@ -81,7 +81,7 @@ def test_buffer_offers_putting_and_getting_data():
     data = FTData(
         sync=bytearray([0xFF, 0xFF]),
         counter=42,
-        length=29,
+        payload=29,
         id=0,
         status_bits=0,
         fx=1.0,
