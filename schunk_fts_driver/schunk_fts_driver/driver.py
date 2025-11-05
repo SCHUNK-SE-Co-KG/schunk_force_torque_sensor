@@ -81,8 +81,8 @@ class Driver(Node):
         self.service_callback_group = MutuallyExclusiveCallbackGroup()
 
         # Parameters
-        self.declare_parameter("host", "0.0.0.0")
-        self.declare_parameter("port", 8082)
+        self.declare_parameter("host", "192.168.0.100")
+        self.declare_parameter("port", 82)
         self.declare_parameter("streaming_port", 54843)
 
         self.sensor: SensorDriver = SensorDriver(
@@ -115,6 +115,7 @@ class Driver(Node):
         level, message = self._get_status_level()
         self._is_sensor_ok = level == DiagnosticStatus.OK
         if not self.sensor.is_streaming or not self._is_sensor_ok:
+            self.get_logger().error(f"Sensor not streaming or not OK: {message}")
             return TransitionCallbackReturn.FAILURE
 
         return TransitionCallbackReturn.SUCCESS

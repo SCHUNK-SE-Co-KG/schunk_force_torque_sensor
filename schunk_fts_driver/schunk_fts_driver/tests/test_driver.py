@@ -16,6 +16,7 @@
 from schunk_fts_driver.driver import Driver
 from threading import Thread
 import time
+import rclpy
 
 
 def test_driver_uses_dedicated_callback_group_for_publishing_ft_data(ros2):
@@ -33,13 +34,28 @@ def test_driver_uses_dedicated_callback_group_for_publishing_ft_data(ros2):
 
 
 def test_driver_uses_library_for_sensor_communication(sensor, ros2):
-    driver = Driver("driver")
+    host, port = sensor
+    driver = Driver(
+        "driver",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
     assert driver.sensor is not None
+    assert driver.get_parameter("host").value == host
+    assert driver.get_parameter("port").value == port
 
 
 def test_driver_streams_when_configured(sensor, ros2):
-    driver = Driver("driver")
-
+    host, port = sensor
+    driver = Driver(
+        "driver",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
     driver.on_configure(state=None)
     assert driver.sensor.is_streaming
     driver.on_cleanup(state=None)
@@ -47,7 +63,14 @@ def test_driver_streams_when_configured(sensor, ros2):
 
 
 def test_publisher_variable_always_exists(sensor, ros2):
-    driver = Driver("test_publisher_variable")
+    host, port = sensor
+    driver = Driver(
+        "test_publisher_variable",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
     for _ in range(3):
         assert driver.ft_data_publisher is None
         driver.on_configure(state=None)
@@ -63,7 +86,14 @@ def test_publisher_variable_always_exists(sensor, ros2):
 
 
 def test_driver_runs_background_thread_for_publishing(sensor, ros2):
-    driver = Driver("test_background_thread")
+    host, port = sensor
+    driver = Driver(
+        "test_background_thread",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
     for i in range(3):
         assert not driver.thread.is_alive()
 
@@ -84,7 +114,14 @@ def test_driver_runs_background_thread_for_publishing(sensor, ros2):
 
 
 def test_publishing_callbacks_dont_collide_with_lifecycle_transitions(sensor, ros2):
-    driver = Driver("test_publishing_collisions")
+    host, port = sensor
+    driver = Driver(
+        "test_publishing_collisions",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
     driver.on_configure(state=None)
 
     # Mimic the timers' callbacks by explicitly calling the publish methods

@@ -14,13 +14,6 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 # --------------------------------------------------------------------------------
 from lifecycle_msgs.msg import Transition, State
-import os
-
-# Module-wide settings.
-# The `driver` fixture uses these variables to
-# launch the driver with specific connection settings.
-HOST = os.getenv("FTS_HOST", "192.168.0.100")
-PORT = int(os.getenv("FTS_PORT", 82))
 
 
 def test_driver_supports_repeated_configure_and_cleanup(sensor, lifecycle_interface):

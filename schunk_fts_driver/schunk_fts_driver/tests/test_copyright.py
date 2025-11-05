@@ -17,6 +17,7 @@ import pytest
 import glob
 
 excluded_files = glob.glob("**/__init__.py", recursive=True)
+excluded_files.append("**/CONTRIBUTING.md")
 exclude_args = sum([["--exclude", f] for f in excluded_files], [])
 
 

@@ -17,13 +17,6 @@ import rclpy
 from rclpy.node import Node
 from rcl_interfaces.srv import GetParameters, SetParameters, ListParameters
 from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
-import os
-
-# Module-wide settings.
-# The `driver` fixture uses these variables to
-# launch the driver with specific connection settings.
-HOST = os.getenv("FTS_HOST", "192.168.0.100")
-PORT = int(os.getenv("FTS_PORT", 82))
 
 
 DRIVER_PARAMETERS = [
@@ -47,7 +40,8 @@ def test_whether_we_cover_all_driver_parameters(driver):
         assert param in future.result().result.names
 
 
-def test_driver_has_expected_parameters_after_startup(driver):
+def test_driver_has_expected_parameters_after_startup(driver, sensor):
+    HOST, PORT = sensor
     node = Node("test_startup_parameters")
     get_params_client = node.create_client(
         GetParameters, "/schunk/driver/get_parameters"

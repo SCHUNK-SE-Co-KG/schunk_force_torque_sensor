@@ -1,3 +1,18 @@
+# Copyright 2025 SCHUNK SE & Co. KG
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see <https://www.gnu.org/licenses/>.
+# --------------------------------------------------------------------------------
 import struct
 import socket
 from socket import socket as Socket
@@ -8,7 +23,7 @@ from queue import Queue, Empty, Full
 
 
 class FTData(TypedDict):
-    sync: int
+    sync: bytes
     counter: int
     payload: int
     id: int
@@ -27,13 +42,12 @@ class FTDataBuffer(object):
         self._last_packet_time = time.monotonic()
 
     def __len__(self):
-        return self._length
+        return self._queue.qsize()
 
     def put(self, packet: bytearray) -> None:
         try:
             self._queue.put_nowait(packet)
         except Full:
-            print("FTDataBuffer: Buffer full, dropping packet")
             pass
 
     def get(self) -> FTData | None:
@@ -49,7 +63,7 @@ class FTDataBuffer(object):
                 return FTData(
                     sync=b"",
                     counter=0,
-                    length=0,
+                    payload=0,
                     id=0,
                     status_bits=0,
                     fx=0.0,
@@ -67,7 +81,7 @@ class FTDataBuffer(object):
         return FTData(
             sync=data[0:2],
             counter=values[0],
-            length=values[1],
+            payload=values[1],
             id=values[2],
             status_bits=values[3],
             fx=values[4],

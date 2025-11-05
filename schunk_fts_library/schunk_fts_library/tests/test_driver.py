@@ -1,12 +1,23 @@
+# Copyright 2025 SCHUNK SE & Co. KG
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see <https://www.gnu.org/licenses/>.
+# --------------------------------------------------------------------------------
 from schunk_fts_library.driver import Driver
-from schunk_fts_library.utility import Connection, FTDataBuffer
+from schunk_fts_library.utility import Connection
 import time
 import pytest
-import os
-
-
-HOST = os.getenv("FTS_HOST", "192.168.0.100")
-PORT = int(os.getenv("FTS_PORT", 82))
+import struct
 
 
 def test_driver_initializes_as_expected():
@@ -28,6 +39,7 @@ def test_driver_initializes_as_expected():
 
 
 def test_driver_offers_streaming(sensor):
+    HOST, PORT = sensor
     driver = Driver(host=HOST, port=PORT)
     assert not driver.is_streaming
 
@@ -43,6 +55,7 @@ def test_driver_offers_streaming(sensor):
 
 
 def test_driver_uses_same_stream_for_multiple_on_calls(sensor):
+    HOST, PORT = sensor
     driver = Driver(host=HOST, port=PORT)
     driver.streaming_on()
     before = driver.stream_update_thread
@@ -60,6 +73,7 @@ def test_driver_survives_multiple_streaming_off_calls():
 
 
 def test_driver_runs_update_thread_when_streaming(sensor):
+    HOST, PORT = sensor
     driver = Driver(host=HOST, port=PORT)
     assert not driver.stream_update_thread.is_alive()
 
@@ -68,6 +82,7 @@ def test_driver_runs_update_thread_when_streaming(sensor):
         assert driver.stream_update_thread.is_alive()
         driver.streaming_off()
         assert not driver.stream_update_thread.is_alive()
+        time.sleep(0.01)
 
 
 def test_driver_timeouts_when_streaming_fails():
@@ -80,6 +95,7 @@ def test_driver_timeouts_when_streaming_fails():
 
 
 def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
+    HOST, PORT = sensor
     test_port = 8001
     driver = Driver(host=HOST, port=PORT, streaming_port=test_port)
 
@@ -90,9 +106,9 @@ def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
     # that we sample that.
     assert driver.streaming_on()
     data = {
-        "sync": 0xFFFF,
+        "sync": b"\xFF\xFF",
         "counter": 42,
-        "payload": 29,
+        "length": 29,
         "id": 1,
         "status_bits": 0x00000000,
         "fx": 1.0,
@@ -102,12 +118,27 @@ def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
         "ty": -17.358,
         "tz": 23.001,
     }
-    buffer = FTDataBuffer()
-    msg = buffer.encode(data=data)
-    send_messages(test_port, [msg])
-    time.sleep(0.1)
+
+    # Build binary packet manually
+    packet = bytearray(data["sync"]) + struct.pack(
+        "<HHB I ffffff",
+        data["counter"],
+        data["length"],
+        data["id"],
+        data["status_bits"],
+        data["fx"],
+        data["fy"],
+        data["fz"],
+        data["tx"],
+        data["ty"],
+        data["tz"],
+    )
+
+    send_messages(test_port, [packet])
+    time.sleep(0.1)  # allow driver to read from socket
 
     result = driver.sample()
+    assert result is not None
     assert result["id"] == data["id"]
     assert result["status_bits"] == data["status_bits"]
     assert pytest.approx(result["fx"]) == data["fx"]
@@ -120,6 +151,7 @@ def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
 
 @pytest.mark.skip()
 def test_driver_supports_sampling_at_different_rates(sensor):
+    HOST, PORT = sensor
     driver = Driver()
 
     # Test streaming at different rates

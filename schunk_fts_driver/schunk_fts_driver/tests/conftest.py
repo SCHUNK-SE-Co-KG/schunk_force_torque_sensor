@@ -32,10 +32,9 @@ def ros2():
     rclpy.shutdown()
 
 
-@launch_pytest.fixture(scope="module")
-def driver(request, ros2):
-    host = getattr(request.module, "HOST", "0.0.0.0")
-    port = getattr(request.module, "PORT", 8082)
+@launch_pytest.fixture(scope="function")
+def driver(request, ros2, sensor):
+    host, port = sensor
 
     setup = IncludeLaunchDescription(
         PathJoinSubstitution(
@@ -80,6 +79,14 @@ class LifecycleInterface(object):
         return future.result().current_state.id == state_id
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def lifecycle_interface(driver):
     return LifecycleInterface()
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if hasattr(config, "sensor_ip"):
+        print("\n=== Sensor Summary ===")
+        print(f"Sensor used: {config.sensor_ip}")
+        print(f"Port used: {config.sensor_port}")
+        print("======================\n")
