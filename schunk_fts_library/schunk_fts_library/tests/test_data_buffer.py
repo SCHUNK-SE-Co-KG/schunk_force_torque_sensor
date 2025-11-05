@@ -155,7 +155,7 @@ def test_buffer_supports_concurrent_accesses():
             try:
                 assert isinstance(data, dict)
                 assert data["sync"] == b"\xFF\xFF"
-                assert data["length"] == 29
+                assert data["payload"] == 29
                 assert data["id"] in (0, 1)
                 assert pytest.approx(data["fx"]) in (1.1, 2.2)
             except AssertionError as e:
