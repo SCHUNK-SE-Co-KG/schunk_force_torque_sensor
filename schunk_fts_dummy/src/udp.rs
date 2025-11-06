@@ -13,7 +13,7 @@ pub async fn stream_ft_data() {
 
     let mut packet_id: u8 = 0;
 
-    let frequency_hz = 8000.0;
+    let frequency_hz = 1000.0;
     let interval = Duration::from_secs_f64(1.0 / frequency_hz);
     let mut next_time = Instant::now();
 
