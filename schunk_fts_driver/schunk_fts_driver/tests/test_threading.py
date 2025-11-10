@@ -348,20 +348,35 @@ def test_callback_group_isolation(sensor, lifecycle_interface):
     driver.change_state(Transition.TRANSITION_CONFIGURE)
     driver.change_state(Transition.TRANSITION_ACTIVATE)
 
-    node = Node("callback_group_test")
-    tare_client = node.create_client(Trigger, "/schunk/driver/tare")
+    # Node for the service client
+    client_node = Node("callback_group_test")
+
+    # 1. Use a single MultiThreadedExecutor to manage ALL nodes in the test.
+    executor = MultiThreadedExecutor()
+    executor.add_node(driver.node)  # The node with the subscription
+    executor.add_node(client_node)  # The node with the service client
+
+    # 2. Run the executor in a background thread. It will handle all callbacks
+    #    for both the subscription and the service client response.
+    executor_thread = threading.Thread(target=executor.spin, daemon=True)
+    executor_thread.start()
+
+    tare_client = client_node.create_client(Trigger, "/schunk/driver/tare")
     assert tare_client.wait_for_service(timeout_sec=2.0)
 
     data_received = []
     service_completed = []
+    lock = threading.Lock()
 
-    def collect_data(msg: WrenchStamped, data: list) -> None:
-        data.append(msg)
+    def collect_data(msg: WrenchStamped) -> None:
+        with lock:
+            data_received.append(msg)
 
+    # Subscription is on driver.node, which is managed by the executor
     _ = driver.node.create_subscription(
         WrenchStamped,
         "/schunk/driver/data",
-        partial(collect_data, data=data_received),
+        collect_data,
         10,
     )
 
@@ -369,25 +384,30 @@ def test_callback_group_isolation(sensor, lifecycle_interface):
     def call_service():
         req = Trigger.Request()
         future = tare_client.call_async(req)
-        rclpy.spin_until_future_complete(node, future, timeout_sec=5.0)
-        service_completed.append(True)
+        # 3. Use the shared executor to safely wait for the future to complete.
+        executor.spin_until_future_complete(future, timeout_sec=5.0)
+        with lock:
+            service_completed.append(True)
 
     service_thread = threading.Thread(target=call_service)
     service_thread.start()
 
-    # While service is processing, data should still be published
-    # (different callback groups should not block each other)
-    timeout = time.time() + 0.5
-    while time.time() < timeout and len(data_received) < 100:
-        rclpy.spin_once(driver.node, timeout_sec=0.001)
+    # 4. REMOVE the conflicting `rclpy.spin_once` loop. The executor is
+    #    handling everything. The main thread just needs to wait.
+    time.sleep(0.5)
 
+    # Wait for the service call thread to finish its work
     service_thread.join(timeout=10.0)
+
+    # 5. Gracefully shut down the executor
+    executor.shutdown()
+    executor_thread.join()
 
     # Both should have completed
     assert len(data_received) > 0, "Data should be published while service is called"
     assert len(service_completed) == 1, "Service should complete"
 
-    node.destroy_node()
+    client_node.destroy_node()
     driver.change_state(Transition.TRANSITION_DEACTIVATE)
     driver.change_state(Transition.TRANSITION_CLEANUP)
 
