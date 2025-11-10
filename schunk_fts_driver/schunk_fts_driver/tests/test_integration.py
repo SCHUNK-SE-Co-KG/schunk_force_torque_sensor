@@ -354,7 +354,7 @@ def test_service_and_data_interleaving(sensor, lifecycle_interface):
         elapsed = time.time() - start
         service_call_times.append(elapsed)
 
-        assert future.result().success, f"Service call {i+1} should succeed"
+        assert future.result().success, f"Service call {i + 1} should succeed"
 
         # Continue collecting data
         for _ in range(20):
@@ -363,12 +363,11 @@ def test_service_and_data_interleaving(sensor, lifecycle_interface):
         # Data should have continued during and after service call
         assert (
             len(data_messages) > count_before_service
-        ), f"Data should continue during service call {i+1}"
+        ), f"Data should continue during service call {i + 1}"
 
     # All service calls should be reasonably fast
     for i, elapsed in enumerate(service_call_times):
-        assert elapsed < 2.0, f"Service call {i+1} took too long: {elapsed}s"
-
+        assert elapsed < 2.0, f"Service call {i + 1} took too long: {elapsed}s"
     node.destroy_node()
     driver.change_state(Transition.TRANSITION_DEACTIVATE)
     driver.change_state(Transition.TRANSITION_CLEANUP)

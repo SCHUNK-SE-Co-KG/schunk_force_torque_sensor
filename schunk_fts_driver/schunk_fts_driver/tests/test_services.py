@@ -355,9 +355,9 @@ def test_repeated_service_calls(service_client_node):
     for i in range(5):
         req = Trigger.Request()
         result = call_service(service_client_node, cli, req)
-        assert result is not None, f"Call {i+1} should return result"
-        assert result.success is True, f"Call {i+1} should succeed"
-        assert result.message == "", f"Call {i+1} should have no error message"
+        assert result is not None, f"Call {i + 1} should return result"
+        assert result.success is True, f"Call {i + 1} should succeed"
+        assert result.message == "", f"Call {i + 1} should have no error message"
 
 
 def test_service_timeout_behavior(service_client_node):

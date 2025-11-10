@@ -568,7 +568,7 @@ def test_timestamp_increases_monotonically(lifecycle_interface):
         assert (
             timestamps[i] >= timestamps[i - 1]
         ), f"Timestamp at index {i} ({timestamps[i]}) "
-        f"is less than previous ({timestamps[i-1]})"
+        f"is less than previous ({timestamps[i - 1]})"
 
     # Check that timestamps are reasonably spaced (approximately 1ms apart for 1kHz)
     # Allow for some variation but ensure they're generally in the right ballpark
