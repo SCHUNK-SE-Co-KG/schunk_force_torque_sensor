@@ -84,6 +84,34 @@ def lifecycle_interface(driver):
     return LifecycleInterface()
 
 
+class MessageSubscriber(Node):
+    def __init__(self, msg_type, topic, node_name_suffix):
+        super().__init__(f"message_subscriber_{node_name_suffix}")
+        self.messages = []
+        self.subscription = self.create_subscription(
+            msg_type, topic, self.listener_callback, 10
+        )
+
+    def listener_callback(self, msg):
+        self.messages.append(msg)
+
+
+@pytest.fixture
+def message_subscriber_factory(ros2):
+    nodes = []
+
+    def _factory(msg_type, topic):
+        # Use a unique name to avoid conflicts if used multiple times in a test
+        node = MessageSubscriber(msg_type, topic, f"{len(nodes)}")
+        nodes.append(node)
+        return node
+
+    yield _factory
+
+    for node in nodes:
+        node.destroy_node()
+
+
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if hasattr(config, "sensor_ip"):
         print("\n=== Sensor Summary ===")

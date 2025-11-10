@@ -5,12 +5,8 @@
     cargo run
     ```
 
-2. Set environment variables in the terminals in which you test
-    ```bash
-    export FTS_HOST="127.0.0.1"
-    export FTS_PORT=8082
-    ```
-    The tests will then connect to the FTS dummy.
+2. The IP of the dummy is set in the fixtures.py of schunk_fts_library.
+    The Dummy will automatically be used if no real sensor is connected.
 
 ## Test coverage
 ```bash

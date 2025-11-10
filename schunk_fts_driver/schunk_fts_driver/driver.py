@@ -263,7 +263,7 @@ class Driver(Node):
                     self._last_state_level = level  # type: ignore
                     self.ft_state_publisher.publish(state_msg)
 
-    def _get_status_level(self, data: FTData | None = None) -> tuple[int, str]:
+    def _get_status_level(self, data: FTData | None = None) -> tuple[bytes, str]:
         status = self.sensor.get_status(data)
         if status is None:
             return (DiagnosticStatus.ERROR, "No signal")
@@ -288,7 +288,12 @@ class Driver(Node):
             f"Received SendCommand request with command_id: '{request.command_id}'"
         )
         try:
-            command_response = self.sensor.run_command(request.command_id)
+            # Strip 0x prefix if present for compatibility
+            command_id = request.command_id
+            if command_id.startswith("0x") or command_id.startswith("0X"):
+                command_id = command_id[2:]
+
+            command_response = self.sensor.run_command(command_id)
             error_code = command_response.error_code
 
             if error_code == "00":
@@ -313,53 +318,53 @@ class Driver(Node):
 
     def _tare_callback(
         self, request: Trigger.Request, response: Trigger.Response
-    ) -> SendCommand.Response:
+    ) -> Trigger.Response:
         try:
             command_response = self.sensor.tare()
             error_code = command_response.error_code
 
             if error_code == "00":
                 response.success = True
-                response.error_message = ""
+                response.message = ""
                 self.get_logger().info("Tare successful.")
             else:
                 response.success = False
-                response.error_message = ERROR_CODE_MAP.get(
+                response.message = ERROR_CODE_MAP.get(
                     error_code, f"Unknown Error Code: {error_code}"
                 )
-                self.get_logger().error(f"Tare failed: {response.error_message}")
+                self.get_logger().error(f"Tare failed: {response.message}")
 
         except Exception as e:
             response.success = False
-            response.error_message = f"An exception occurred during tare: {str(e)}"
-            self.get_logger().error(response.error_message)
+            response.message = f"An exception occurred during tare: {str(e)}"
+            self.get_logger().error(response.message)
 
         return response
 
     def _reset_tare_callback(
         self, request: Trigger.Request, response: Trigger.Response
-    ) -> SendCommand.Response:
+    ) -> Trigger.Response:
         try:
             command_response = self.sensor.tare_reset()
             error_code = command_response.error_code
 
             if error_code == "00":
                 response.success = True
-                response.error_message = ""
+                response.message = ""
                 self.get_logger().info("Tare reset successful.")
             else:
                 response.success = False
-                response.error_message = ERROR_CODE_MAP.get(
+                response.message = ERROR_CODE_MAP.get(
                     error_code, f"Unknown Error Code: {error_code}"
                 )
-                self.get_logger().error(f"Tare reset failed: {response.error_message}")
+                self.get_logger().error(f"Tare reset failed: {response.message}")
 
         except Exception as e:
             response.success = False
-            response.error_message = (
+            response.message = (
                 f"An exception occurred during command execution: {str(e)}"
             )
-            self.get_logger().error(response.error_message)
+            self.get_logger().error(response.message)
 
         return response
 

@@ -136,5 +136,5 @@ def test_publishing_callbacks_dont_collide_with_lifecycle_transitions(sensor, ro
         driver.on_activate(state=None)
         driver.on_deactivate(state=None)
 
-    timer_thread.join()
+    timer_thread.join(timeout=5.0)
     driver.on_cleanup(state=None)
