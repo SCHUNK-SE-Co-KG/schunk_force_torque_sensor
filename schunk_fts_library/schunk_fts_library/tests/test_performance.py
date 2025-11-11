@@ -208,7 +208,7 @@ def test_performance_buffer_queue_efficiency():
     fill_time = time.perf_counter() - start
 
     # Should fill quickly (< 10 ms)
-    assert fill_time < 0.01, f"Buffer fill too slow: {fill_time*1000:.2f} ms"
+    assert fill_time < 0.01, f"Buffer fill too slow: {fill_time * 1000:.2f} ms"
 
     # Empty buffer
     start = time.perf_counter()
@@ -217,7 +217,7 @@ def test_performance_buffer_queue_efficiency():
     empty_time = time.perf_counter() - start
 
     # Should empty quickly (< 100 ms)
-    assert empty_time < 0.1, f"Buffer empty too slow: {empty_time*1000:.2f} ms"
+    assert empty_time < 0.1, f"Buffer empty too slow: {empty_time * 1000:.2f} ms"
 
 
 def test_performance_concurrent_sampling_scalability(sensor):
