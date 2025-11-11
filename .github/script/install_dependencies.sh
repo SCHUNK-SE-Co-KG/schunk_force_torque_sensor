@@ -2,20 +2,18 @@
 cd $HOME
 apt-get install -y socat
 
-# Python dependencies from setup.py
+# Python dependencies
+python_deps="requests psutil"
 os_name=$(lsb_release -cs)
 
 case $os_name in
   jammy) # Ubuntu 22.04
-    pip install --user -e /workspace/src/schunk_fts_library
-    pip install --user -e /workspace/src/schunk_fts_driver
+    pip install --user $python_deps
     ;;
   kinetic) # Ubuntu 24.04
-    pip install --break-system-packages -e /workspace/src/schunk_fts_library
-    pip install --break-system-packages -e /workspace/src/schunk_fts_driver
+    pip install --break-system-packages $python_deps
     ;;
   *) # Newer
-    pip install --break-system-packages -e /workspace/src/schunk_fts_library
-    pip install --break-system-packages -e /workspace/src/schunk_fts_driver
+    pip install --break-system-packages $python_deps
     ;;
 esac
