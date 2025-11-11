@@ -25,7 +25,7 @@ from schunk_fts_library.utility import (
     CommandRequest,
     CommandResponse,
 )
-from threading import Thread
+from threading import Thread, Lock
 import asyncio
 import time
 from dataclasses import dataclass
@@ -86,6 +86,7 @@ class Driver(object):
         self.producer_packet_count = 0
         self.last_producer_counter = -1
         self.producer_start_time = time.perf_counter()
+        self._lock: Lock = Lock()
 
     def streaming_on(self, timeout_sec: float = 0.1) -> bool:
         if self.is_streaming:
@@ -147,12 +148,11 @@ class Driver(object):
         req.param_subindex = subindex
         msg = req.to_bytes()
         data = bytearray()
-
-        with self.connection as sensor:
-            if sensor:
-                sensor.send(msg)
-                data = sensor.receive()
-
+        with self._lock:
+            with self.connection as sensor:
+                if sensor:
+                    sensor.send(msg)
+                    data = sensor.receive()
         response = GetParameterResponse()
         if data:
             response.from_bytes(data)

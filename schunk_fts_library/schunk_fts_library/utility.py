@@ -242,9 +242,12 @@ class Message(object):
     def to_bytes(self) -> bytearray:
         payload = bytearray()
         for field in getattr(self, "__fields__", []):
-            value = getattr(self, field)
-            little_endian_bytes = bytes.fromhex(value)[::-1]
-            payload.extend(little_endian_bytes)
+            try:
+                value = getattr(self, field)
+                little_endian_bytes = bytes.fromhex(value)[::-1]
+                payload.extend(little_endian_bytes)
+            except Exception as e:
+                print(f"to_bytes: Error processing field '{field}': {e}")
         self.payload_len = len(payload)
         data = bytearray(
             bytes.fromhex(self.sync)
