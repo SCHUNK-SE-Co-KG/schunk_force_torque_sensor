@@ -7,6 +7,9 @@ on:
     # Run every Friday at 6:30 am to detect breaking APIs
     - cron: '30 6 * * 5'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   industrial_ci:
