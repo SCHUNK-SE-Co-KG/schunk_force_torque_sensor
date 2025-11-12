@@ -78,6 +78,21 @@ class LifecycleInterface(object):
         rclpy.spin_until_future_complete(self.node, future)
         return future.result().current_state.id == state_id
 
+    def shutdown(self):
+        """Properly shutdown the driver to inactive state."""
+        from lifecycle_msgs.msg import Transition
+
+        # Transition to inactive if not already there
+        try:
+            self.change_state(Transition.TRANSITION_DEACTIVATE)
+        except Exception:
+            pass  # May already be inactive
+        # Then cleanup
+        try:
+            self.change_state(Transition.TRANSITION_CLEANUP)
+        except Exception:
+            pass  # May already be unconfigured
+
 
 @pytest.fixture(scope="function")
 def lifecycle_interface(driver):

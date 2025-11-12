@@ -93,6 +93,7 @@ class Driver(Node):
             streaming_port=self.get_parameter("streaming_port").value,
         )
         self.ft_data_publisher: Publisher | None = None
+        self.ft_state_publisher: Publisher | None = None
         self.publisher_lock: Lock = Lock()
         self.period: float = 0.0005  # sec
         self.thread: Thread = Thread()
@@ -200,6 +201,8 @@ class Driver(Node):
         with self.publisher_lock:
             self.destroy_publisher(self.ft_data_publisher)
             self.ft_data_publisher = None
+            self.destroy_publisher(self.ft_state_publisher)
+            self.ft_state_publisher = None
         self.thread.join()
 
         # Destroy services

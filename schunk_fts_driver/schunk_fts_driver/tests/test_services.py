@@ -35,6 +35,13 @@ def service_client_node(ros2, lifecycle_interface):
     node = rclpy.create_node("service_client_node")
     yield node
     node.destroy_node()
+    # Ensure driver is deactivated and cleaned up after test
+    # (Note: lifecycle_interface fixture will also do final cleanup)
+    try:
+        lifecycle_interface.change_state(Transition.TRANSITION_DEACTIVATE)
+        lifecycle_interface.change_state(Transition.TRANSITION_CLEANUP)
+    except Exception:
+        pass  # May already be cleaned up by lifecycle_interface fixture
 
 
 def call_service(node, client, request):
