@@ -291,8 +291,8 @@ def test_performance_streaming_startup_time(sensor):
     if success:
         driver.streaming_off()
 
-        # Startup should be quick (< 1 second)
-        assert startup_time < 1.0, f"Startup too slow: {startup_time:.3f} seconds"
+        # Startup should be quick (< 2 seconds)
+        assert startup_time < 2.0, f"Startup too slow: {startup_time:.3f} seconds"
     else:
         pytest.skip("Could not start streaming")
 

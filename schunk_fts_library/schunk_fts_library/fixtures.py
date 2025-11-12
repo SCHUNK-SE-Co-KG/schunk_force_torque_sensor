@@ -33,24 +33,26 @@ DUMMY_SENSOR_PORT = 8082
 def sensor_available_at(host: str, port: int, timeout_sec=2.0) -> bool:
     start = time.time()
     while time.time() - start < timeout_sec:
-        while time.time() - start < timeout_sec:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.1)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.settimeout(0.1)
+        try:
             result = s.connect_ex((host, port))
+        finally:
             s.close()
 
-            # 0 means success (connection accepted)
-            # 111 (ECONNREFUSED) means nothing listening
-            # 106 (EISCONN) or 98 (EADDRINUSE) often
-            # mean "already connected" → consider that as reachable
-            if result == 0 or result in (98, 106):
-                return True
+        # 0 means success (connection accepted)
+        # 111 (ECONNREFUSED) means nothing listening
+        # 106 (EISCONN) or 98 (EADDRINUSE) often
+        # mean "already connected" → consider that as reachable
+        if result == 0 or result in (98, 106):
+            return True
 
-            time.sleep(0.1)
+        time.sleep(0.1)
     return False
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def sensor(request):
 
     ci_dummy = Path("/tmp/schunk_fts_dummy/debug/schunk_fts_dummy")

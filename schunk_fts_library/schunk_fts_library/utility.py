@@ -153,9 +153,11 @@ class Connection(object):
     def __init__(self, host: str, port: int) -> None:
         self.host = host
         self.port = port
-        self._reset_socket()
+        self._lock: Lock = Lock()
         self.is_open: bool = False
         self.persistent: Event = Event()
+        with self._lock:
+            self._reset_socket()
 
     def send(self, data: bytearray) -> bool:
         if not self.is_open:
@@ -175,7 +177,11 @@ class Connection(object):
         data = bytearray()
         if not self.is_open:
             return data
-        data = bytearray(self.socket.recv(1024))
+        try:
+            data = bytearray(self.socket.recv(1024))
+        except OSError as e:
+            print(f"Receive: General socket error: {e}")
+            self.is_open = False
         return data
 
     def __bool__(self) -> bool:
@@ -189,38 +195,39 @@ class Connection(object):
         return False
 
     def close(self) -> None:
-        self.__exit__(None, None, None)
-        self.persistent.clear()
-        # Ensure socket is fully reset for clean reconnection
-        if hasattr(self, "socket"):
-            try:
-                if self.socket.fileno() != -1:
-                    self.socket.close()
-            except Exception as e:
-                print(f"Close: General socket error: {e}")
+        with self._lock:
+            self.persistent.clear()
+            self._close_socket()
+            # Ensure socket is fully reset for clean reconnection
             self._reset_socket()
 
     def __enter__(self) -> "Connection":
-        if self.is_open:
+        with self._lock:
+            if self.is_open:
+                return self
+            try:
+                if self.socket.fileno() == -1:  # already closed once
+                    self._reset_socket()
+                self.socket.connect((self.host, self.port))
+                self.is_open = True
+            except socket.gaierror as e:
+                print(f"Connect: Address-related error: {e}")
+            except socket.timeout:
+                print("Connect: Timed out.")
+            except ConnectionRefusedError as e:
+                print(f"Connect: Refused by the server: {e}")
+            except OSError as e:
+                print(f"Connect: General socket error: {e}")
             return self
-        try:
-            if self.socket.fileno() == -1:  # already closed once
-                self._reset_socket()
-            self.socket.connect((self.host, self.port))
-            self.is_open = True
-        except socket.gaierror as e:
-            print(f"Connect: Address-related error: {e}")
-        except socket.timeout:
-            print("Connect: Timed out.")
-        except ConnectionRefusedError as e:
-            print(f"Connect: Refused by the server: {e}")
-        except OSError as e:
-            print(f"Connect: General socket error: {e}")
-        return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        if self.persistent.is_set():
-            return
+        with self._lock:
+            if self.persistent.is_set():
+                return
+            self._close_socket()
+
+    def _close_socket(self) -> None:
+        """Internal method to close the socket. Must be called with lock held."""
         if self.is_open:
             try:
                 self.socket.shutdown(socket.SHUT_RDWR)
@@ -231,9 +238,14 @@ class Connection(object):
             self.socket.close()
 
     def _reset_socket(self) -> None:
+        """Internal method to reset the socket. Must be called with lock held."""
         self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(2)
-        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError as e:
+            # Socket might be in a bad state, log but don't crash
+            print(f"_reset_socket: Could not set TCP_NODELAY: {e}")
 
 
 class Message(object):

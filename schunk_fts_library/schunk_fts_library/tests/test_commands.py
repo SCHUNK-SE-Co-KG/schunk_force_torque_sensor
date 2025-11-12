@@ -16,6 +16,7 @@
 from schunk_fts_library.driver import Driver
 from schunk_fts_library.utility import CommandResponse
 import pytest
+import time
 
 
 @pytest.mark.parametrize(
@@ -34,11 +35,21 @@ def test_driver_offers_running_commands(sensor, command, expected_error_code):
     if not driver.connection.open():
         pytest.skip("Could not open connection to sensor.")
 
-    cmd = command
-    expected_code = expected_error_code
+    try:
+        cmd = command
+        expected_code = expected_error_code
 
-    response = driver.run_command(command=cmd)
-    assert response.error_code == expected_code
+        response = driver.run_command(command=cmd)
+        assert response.error_code == expected_code
+    finally:
+        # Always close connection to avoid exhausting sensor connection limit
+        driver.connection.close()
+        # Give sensor time to clean up TCP connection (TIME_WAIT state)
+        # For reset command (20), sensor needs time to reboot
+        if command == "20":
+            time.sleep(5.0)  # Sensor reboot time
+        else:
+            time.sleep(0.1)
 
 
 def test_commands_return_empty_responses_without_connection():

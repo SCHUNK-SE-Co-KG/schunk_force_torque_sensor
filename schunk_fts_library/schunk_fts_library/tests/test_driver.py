@@ -43,26 +43,34 @@ def test_driver_offers_streaming(sensor):
     driver = Driver(host=HOST, port=PORT)
     assert not driver.is_streaming
 
-    for run in range(3):
-        assert not driver.stream.is_open()
-        assert driver.streaming_on(), f"run: {run}"
-        assert driver.is_streaming
-        assert driver.stream.is_open()
+    try:
+        for run in range(3):
+            assert not driver.stream.is_open()
+            assert driver.streaming_on(), f"run: {run}"
+            assert driver.is_streaming
+            assert driver.stream.is_open()
 
+            driver.streaming_off()
+            assert not driver.is_streaming
+            assert not driver.stream.is_open()
+    finally:
         driver.streaming_off()
-        assert not driver.is_streaming
-        assert not driver.stream.is_open()
+        time.sleep(0.1)
 
 
 def test_driver_uses_same_stream_for_multiple_on_calls(sensor):
     HOST, PORT = sensor
     driver = Driver(host=HOST, port=PORT)
-    driver.streaming_on()
-    before = driver.stream_update_thread
-    for _ in range(3):
-        assert driver.streaming_on()
-        after = driver.stream_update_thread
-    assert after == before
+    try:
+        driver.streaming_on()
+        before = driver.stream_update_thread
+        for _ in range(3):
+            assert driver.streaming_on()
+            after = driver.stream_update_thread
+        assert after == before
+    finally:
+        driver.streaming_off()
+        time.sleep(0.1)
 
 
 def test_driver_survives_multiple_streaming_off_calls():
@@ -77,12 +85,16 @@ def test_driver_runs_update_thread_when_streaming(sensor):
     driver = Driver(host=HOST, port=PORT)
     assert not driver.stream_update_thread.is_alive()
 
-    for _ in range(3):
-        driver.streaming_on()
-        assert driver.stream_update_thread.is_alive()
+    try:
+        for _ in range(3):
+            driver.streaming_on()
+            assert driver.stream_update_thread.is_alive()
+            driver.streaming_off()
+            assert not driver.stream_update_thread.is_alive()
+            time.sleep(0.01)
+    finally:
         driver.streaming_off()
-        assert not driver.stream_update_thread.is_alive()
-        time.sleep(0.01)
+        time.sleep(0.1)
 
 
 def test_driver_timeouts_when_streaming_fails():
@@ -137,16 +149,20 @@ def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
     send_messages(test_port, [packet])
     time.sleep(0.1)  # allow driver to read from socket
 
-    result = driver.sample()
-    assert result is not None
-    assert result["id"] == data["id"]
-    assert result["status_bits"] == data["status_bits"]
-    assert pytest.approx(result["fx"]) == data["fx"]
-    assert pytest.approx(result["fy"]) == data["fy"]
-    assert pytest.approx(result["fz"]) == data["fz"]
-    assert pytest.approx(result["tx"]) == data["tx"]
-    assert pytest.approx(result["ty"]) == data["ty"]
-    assert pytest.approx(result["tz"]) == data["tz"]
+    try:
+        result = driver.sample()
+        assert result is not None
+        assert result["id"] == data["id"]
+        assert result["status_bits"] == data["status_bits"]
+        assert pytest.approx(result["fx"]) == data["fx"]
+        assert pytest.approx(result["fy"]) == data["fy"]
+        assert pytest.approx(result["fz"]) == data["fz"]
+        assert pytest.approx(result["tx"]) == data["tx"]
+        assert pytest.approx(result["ty"]) == data["ty"]
+        assert pytest.approx(result["tz"]) == data["tz"]
+    finally:
+        driver.streaming_off()
+        time.sleep(0.1)
 
 
 @pytest.mark.skip()
