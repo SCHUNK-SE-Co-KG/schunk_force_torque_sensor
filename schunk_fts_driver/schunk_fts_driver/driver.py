@@ -111,6 +111,7 @@ class Driver(Node):
         self._last_counter: int = -1
         self._base_counter: int = -1
         self._is_sensor_ok: bool = False
+        self._connection_lost: bool = False
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_configure() is called.")
@@ -241,10 +242,45 @@ class Driver(Node):
 
         while rclpy.ok() and not self.stop_event.is_set():
             data = self.sensor.sample()
-            if data is None:  # Buffer empty
+
+            # Check if connection was lost (data is None for extended period)
+            if data is None:
+                if not self._connection_lost and self._is_sensor_ok:
+                    self.get_logger().warn(
+                        "Connection lost - waiting for sensor to reconnect..."
+                    )
+                    self._connection_lost = True
+                    # Publish warning state
+                    with self.publisher_lock:
+                        if self.ft_state_publisher:
+                            state_msg.level = DiagnosticStatus.WARN
+                            state_msg.message = (
+                                "Connection lost - attempting reconnection"
+                            )
+                            self.ft_state_publisher.publish(state_msg)
                 continue
+
+            # Connection restored
+            if self._connection_lost:
+                self.get_logger().info(
+                    "Connection restored - resuming data publication"
+                )
+                self._connection_lost = False
+                # Reset timestamp and counter tracking on reconnection
+                self._base_stamp_ros = None
+                self._last_counter = -1
+                self._base_counter = -1
+                # Publish OK state
+                with self.publisher_lock:
+                    if self.ft_state_publisher:
+                        state_msg.level = DiagnosticStatus.OK
+                        state_msg.message = "Connection restored"
+                        self.ft_state_publisher.publish(state_msg)
+                        self._last_state_level = DiagnosticStatus.OK
+
             counter = data["counter"]  # type: ignore
 
+            # Skip packet loss check right after reconnection
             if self._last_counter != -1 and counter != (self._last_counter + 1) % 65536:
                 packets_skipped = (counter - self._last_counter - 1 + 65536) % 65536
                 print(

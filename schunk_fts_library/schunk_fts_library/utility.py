@@ -40,6 +40,7 @@ class FTDataBuffer(object):
     def __init__(self, maxsize=100) -> None:
         self._queue: Queue[FTData] = Queue(maxsize=maxsize)
         self._last_packet_time = time.monotonic()
+        self._no_data_warning_printed = False
 
     def __len__(self):
         return self._queue.qsize()
@@ -47,6 +48,9 @@ class FTDataBuffer(object):
     def put(self, packet: bytearray) -> None:
         try:
             self._queue.put_nowait(packet)
+            self._no_data_warning_printed = (
+                False  # Reset warning flag when data resumes
+            )
         except Full:
             pass
 
@@ -57,9 +61,11 @@ class FTDataBuffer(object):
             return self.decode(packet)
         except Empty:
             if (
-                time.monotonic() - self._last_packet_time > 0.2
+                time.monotonic() - self._last_packet_time > 1.0
             ):  # return empty FTData to indicate no signal
-                print("FTDataBuffer: No data received anymore")
+                if not self._no_data_warning_printed:
+                    print("FTDataBuffer: No data received anymore")
+                    self._no_data_warning_printed = True
                 return FTData(
                     sync=b"",
                     counter=0,
@@ -185,6 +191,14 @@ class Connection(object):
     def close(self) -> None:
         self.__exit__(None, None, None)
         self.persistent.clear()
+        # Ensure socket is fully reset for clean reconnection
+        if hasattr(self, "socket"):
+            try:
+                if self.socket.fileno() != -1:
+                    self.socket.close()
+            except Exception as e:
+                print(f"Close: General socket error: {e}")
+            self._reset_socket()
 
     def __enter__(self) -> "Connection":
         if self.is_open:

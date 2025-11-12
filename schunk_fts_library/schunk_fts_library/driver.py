@@ -75,6 +75,9 @@ class Driver(object):
     def __init__(
         self, host: str = "192.168.0.100", port: int = 82, streaming_port: int = 54843
     ) -> None:
+        self.host = host
+        self.port = port
+        self.streaming_port = streaming_port
         self.connection: Connection = Connection(host=host, port=port)
         self.ft_data: FTDataBuffer = FTDataBuffer()
         self.stream: Stream = Stream(port=streaming_port)
@@ -88,8 +91,12 @@ class Driver(object):
         self.last_producer_counter = -1
         self.producer_start_time = time.perf_counter()
         self._lock: Lock = Lock()
+        self.reconnect_interval = 1.0  # seconds between reconnection attempts
+        self.auto_reconnect = False
 
-    def streaming_on(self, timeout_sec: float = 0.1) -> bool:
+    def streaming_on(
+        self, timeout_sec: float = 0.1, auto_reconnect: bool = True
+    ) -> bool:
         if self.is_streaming:
             return True
         if not isinstance(timeout_sec, float):
@@ -100,6 +107,7 @@ class Driver(object):
             return False
 
         self.is_streaming = True
+        self.auto_reconnect = auto_reconnect
         self.stream_update_thread = Thread(
             target=asyncio.run,
             args=(self._update(),),
@@ -131,6 +139,7 @@ class Driver(object):
 
     def streaming_off(self) -> None:
         self.stop_udp_stream()
+        self.auto_reconnect = False
         self.is_streaming = False
         if self.stream_update_thread.is_alive():
             self.stream_update_thread.join()
@@ -277,19 +286,122 @@ class Driver(object):
         bits = status["status_bits"]
         return SensorStatus.from_bits(bits)
 
+    def _attempt_reconnect(self) -> bool:
+        """Attempt to reconnect to the sensor and restart UDP streaming.
+
+        Returns:
+            True if reconnection successful, False otherwise
+        """
+        try:
+            # Ensure any old connection is fully closed and socket reset
+            try:
+                self.connection.close()
+            except Exception as e:
+                print(f"Error closing connection: {e}")
+
+            # Small delay to allow socket cleanup and sensor to boot
+            time.sleep(0.5)
+
+            # Try to open TCP connection
+            if not self.connection.open():
+                return False
+
+            # Verify connection is actually open and stable
+            if not self.connection.is_open:
+                return False
+
+            # Give the connection a moment to stabilize
+            time.sleep(0.1)
+
+            # Try to start UDP stream with proper error handling
+            try:
+                with self._lock:
+                    response = self.start_udp_stream()
+
+                    # Check if we got a valid response structure
+                    if not hasattr(response, "error_code"):
+                        print("Invalid response structure from sensor")
+                        self.connection.close()
+                        return False
+
+                    # Check if response has valid error code
+                    if not response.error_code:
+                        print("Empty error code in response")
+                        self.connection.close()
+                        return False
+
+                    if response.error_code != "00":
+                        print(f"Sensor returned error code: {response.error_code}")
+                        self.connection.close()
+                        return False
+
+            except struct.error as e:
+                print(
+                    "Failed to parse sensor response "
+                    f"(sensor may still be booting): {e}"
+                )
+                self.connection.close()
+                return False
+            except Exception as e:
+                print(f"Failed to start UDP stream: {e}")
+                self.connection.close()
+                return False
+
+            # Wait for stream to stabilize
+            time.sleep(0.15)
+
+            print("Reconnection successful")
+            return True
+
+        except Exception as e:
+            print(f"Reconnection attempt failed: {e}")
+            try:
+                self.connection.close()
+            except Exception as e:
+                print(f"Error closing connection: {e}")
+            return False
+
     async def _update(self) -> None:
         self.producer_start_time = time.perf_counter()
         with self.stream:
             last_packet_time = time.perf_counter()
-            while self.is_streaming:
+            connection_lost = False
+            while self.is_streaming or (connection_lost and self.auto_reconnect):
                 packets = self.stream.read()
                 if not packets:
                     now = time.perf_counter()
-                    if self.received_data and (
-                        now - last_packet_time > self.timeout_sec
-                    ):
-                        self.is_streaming = False
+                    # Check for timeout regardless of whether we've received data before
+                    if now - last_packet_time > self.timeout_sec:
+                        if not connection_lost:
+                            print("Connection lost - UDP stream timeout")
+                            connection_lost = True
+                            self.received_data = (
+                                False  # Reset to avoid repeated buffer warnings
+                            )
+                            try:
+                                self.connection.close()
+                            except Exception as e:
+                                print(f"Error closing connection: {e}")
+
+                        # Attempt reconnection if auto_reconnect is enabled
+                        if self.auto_reconnect:
+                            await asyncio.sleep(self.reconnect_interval)
+                            if self._attempt_reconnect():
+                                connection_lost = False
+                                last_packet_time = time.perf_counter()
+                                self.received_data = True
+                        else:
+                            self.is_streaming = False
+                    await asyncio.sleep(0.01)
                     continue
+
+                # If we receive packets after connection was lost, mark as reconnected
+                if connection_lost:
+                    print("Connection restored - receiving data again")
+                    connection_lost = False
+
+                last_packet_time = time.perf_counter()
+                self.received_data = True
 
                 # Process every packet in the batch.
                 for packet in packets:
@@ -299,7 +411,11 @@ class Driver(object):
                     except (struct.error, IndexError):
                         continue
 
-                    self.last_producer_counter = current_counter
+                    # Initialize counter on first packet or after reconnection
+                    if self.last_producer_counter == -1:
+                        self.last_producer_counter = current_counter
+                    else:
+                        self.last_producer_counter = current_counter
 
                     # Put the valid packet into our high-speed buffer.
                     self.ft_data.put(packet)
