@@ -371,3 +371,22 @@ class CommandResponse(Message):
         self.command_id = data[6:7].hex()
         self.error_code = data[7:8].hex()
         return True
+
+
+class CommandWithParameterRequest(Message):
+    """Command request with a single uint8 parameter byte."""
+
+    __fields__ = ["command_id", "parameter"]
+
+    def __init__(self) -> None:
+        super().__init__()
+        for field in self.__fields__:
+            setattr(self, field, "")
+
+    def from_bytes(self, data: bytearray) -> bool:
+        self.sync = data[0:2].hex()
+        self.counter = struct.unpack("H", data[2:4])[0]
+        self.payload_len = struct.unpack("H", data[4:6])[0]
+        self.command_id = data[6:7].hex()
+        self.parameter = data[7:8].hex()
+        return True

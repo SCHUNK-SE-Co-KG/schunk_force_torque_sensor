@@ -36,6 +36,8 @@ from example_interfaces.srv import Trigger
 from schunk_fts_interfaces.srv import (  # type: ignore [attr-defined]
     SendCommand,
     SetParameter,
+    SelectToolSetting,
+    SelectNoiseFilter,
 )
 
 
@@ -100,6 +102,8 @@ class Driver(Node):
         self.set_parameter_service: Service | None = None
         self.tare_service: Service | None = None
         self.reset_tare_service: Service | None = None
+        self.select_tool_setting_service: Service | None = None
+        self.select_noise_filter_service: Service | None = None
 
         self._last_state_level = None
         self._base_stamp_ros = None
@@ -169,6 +173,18 @@ class Driver(Node):
             self._reset_tare_callback,
             callback_group=self.service_callback_group,
         )
+        self.select_tool_setting_service = self.create_service(
+            SelectToolSetting,
+            "~/select_tool_setting",
+            self._select_tool_setting_callback,
+            callback_group=self.service_callback_group,
+        )
+        self.select_noise_filter_service = self.create_service(
+            SelectNoiseFilter,
+            "~/select_noise_filter",
+            self._select_noise_filter_callback,
+            callback_group=self.service_callback_group,
+        )
 
         self.stop_event.clear()
         self.thread = Thread(target=self._publish_data)
@@ -198,6 +214,12 @@ class Driver(Node):
         if self.reset_tare_service:
             self.destroy_service(self.reset_tare_service)
             self.reset_tare_service = None
+        if self.select_tool_setting_service:
+            self.destroy_service(self.select_tool_setting_service)
+            self.select_tool_setting_service = None
+        if self.select_noise_filter_service:
+            self.destroy_service(self.select_noise_filter_service)
+            self.select_noise_filter_service = None
 
         return super().on_deactivate(state)
 
@@ -401,6 +423,86 @@ class Driver(Node):
             response.success = False
             response.error_message = (
                 f"An exception occurred during parameter setting: {str(e)}"
+            )
+            self.get_logger().error(response.error_message)
+
+        return response
+
+    def _select_tool_setting_callback(
+        self,
+        request: SelectToolSetting.Request,
+        response: SelectToolSetting.Response,
+    ) -> SelectToolSetting.Response:
+        self.get_logger().info(
+            f"Received SelectToolSetting request with tool_index: {request.tool_index}"
+        )
+        try:
+            command_response = self.sensor.select_tool_setting(request.tool_index)
+            error_code = command_response.error_code
+
+            if error_code == "00":
+                response.success = True
+                response.error_message = ""
+                self.get_logger().info(
+                    f"Tool setting {request.tool_index} selected successfully."
+                )
+            else:
+                response.success = False
+                response.error_message = ERROR_CODE_MAP.get(
+                    error_code, f"Unknown Error Code: {error_code}"
+                )
+                self.get_logger().error(
+                    f"Select tool setting failed: {response.error_message}"
+                )
+
+        except Exception as e:
+            response.success = False
+            response.error_message = (
+                f"An exception occurred during tool setting selection: {str(e)}"
+            )
+            self.get_logger().error(response.error_message)
+
+        return response
+
+    def _select_noise_filter_callback(
+        self,
+        request: SelectNoiseFilter.Request,
+        response: SelectNoiseFilter.Response,
+    ) -> SelectNoiseFilter.Response:
+        self.get_logger().info(
+            "Received SelectNoiseFilter request "
+            f"with filter_number: {request.filter_number}"
+        )
+        try:
+            command_response = self.sensor.select_noise_filter(request.filter_number)
+            error_code = command_response.error_code
+
+            if error_code == "00":
+                response.success = True
+                response.error_message = ""
+                filter_factors = [1, 2, 4, 8, 16]
+                factor = (
+                    filter_factors[request.filter_number]
+                    if request.filter_number < len(filter_factors)
+                    else request.filter_number
+                )
+                self.get_logger().info(
+                    f"Noise filter {request.filter_number} "
+                    f"(factor {factor}) selected successfully."
+                )
+            else:
+                response.success = False
+                response.error_message = ERROR_CODE_MAP.get(
+                    error_code, f"Unknown Error Code: {error_code}"
+                )
+                self.get_logger().error(
+                    f"Select noise filter failed: {response.error_message}"
+                )
+
+        except Exception as e:
+            response.success = False
+            response.error_message = (
+                f"An exception occurred during noise filter selection: {str(e)}"
             )
             self.get_logger().error(response.error_message)
 

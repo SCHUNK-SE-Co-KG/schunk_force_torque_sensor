@@ -14,6 +14,8 @@ rosidl_generate_interfaces(
   ${PROJECT_NAME}
     srv/SendCommand.srv
     srv/SetParameter.srv
+    srv/SelectToolSetting.srv
+    srv/SelectNoiseFilter.srv
 
   DEPENDENCIES
     std_msgs

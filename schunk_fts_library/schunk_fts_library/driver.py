@@ -24,6 +24,7 @@ from schunk_fts_library.utility import (
     GetParameterResponse,
     CommandRequest,
     CommandResponse,
+    CommandWithParameterRequest,
 )
 from threading import Thread, Lock
 import asyncio
@@ -206,6 +207,66 @@ class Driver(object):
 
     def tare_reset(self) -> CommandResponse:
         return self.run_command("13")
+
+    def select_tool_setting(self, tool_index: int) -> CommandResponse:
+        """Select a tool setting (0-3) with Tool Center Point and Overrange Limits.
+
+        Args:
+            tool_index: Tool settings index (0-3)
+
+        Returns:
+            CommandResponse with error_code "00" on success
+        """
+        if not 0 <= tool_index <= 3:
+            response = CommandResponse()
+            response.error_code = "03"  # Invalid Command Value
+            return response
+
+        req = CommandWithParameterRequest()
+        req.command_id = "30"
+        req.parameter = f"{tool_index:02x}"
+        msg = req.to_bytes()
+        response = CommandResponse()
+
+        if self.connection:
+            try:
+                self.connection.send(msg)
+            except Exception:
+                return response
+            data = self.connection.receive()
+            response.from_bytes(data)
+
+        return response
+
+    def select_noise_filter(self, filter_number: int) -> CommandResponse:
+        """Select noise reduction filter using rolling average.
+
+        Args:
+            filter_number: Filter number (0-4) for factors 1, 2, 4, 8, 16
+
+        Returns:
+            CommandResponse with error_code "00" on success
+        """
+        if not 0 <= filter_number <= 4:
+            response = CommandResponse()
+            response.error_code = "03"  # Invalid Command Value
+            return response
+
+        req = CommandWithParameterRequest()
+        req.command_id = "31"
+        req.parameter = f"{filter_number:02x}"
+        msg = req.to_bytes()
+        response = CommandResponse()
+
+        if self.connection:
+            try:
+                self.connection.send(msg)
+            except Exception:
+                return response
+            data = self.connection.receive()
+            response.from_bytes(data)
+
+        return response
 
     def get_status(self, status: FTData | None = None) -> SensorStatus | None:
         if not self.is_streaming:

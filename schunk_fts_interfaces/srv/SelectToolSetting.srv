@@ -1,0 +1,7 @@
+# Request: Tool Settings Index (0-3)
+# Each tool setting includes Tool Center Point (TCP) transformation and User-Defined Overrange Limits
+uint8 tool_index
+---
+# Response
+bool success
+string error_message # Empty if success, contains error description otherwise

@@ -19,7 +19,11 @@ import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from lifecycle_msgs.msg import Transition
 from example_interfaces.srv import Trigger
-from schunk_fts_interfaces.srv import SendCommand  # type: ignore [attr-defined]
+from schunk_fts_interfaces.srv import (  # type: ignore [attr-defined]
+    SendCommand,
+    SelectToolSetting,
+    SelectNoiseFilter,
+)
 import threading
 
 
@@ -422,3 +426,185 @@ def test_service_availability_after_error(service_client_node):
     valid_req.command_id = "12"
     valid_result = call_service(service_client_node, cli, valid_req)
     assert valid_result.success is True, "Valid call should succeed after error"
+
+
+def test_select_tool_setting_service(service_client_node):
+    """Test the select_tool_setting service with valid tool indices."""
+    cli = service_client_node.create_client(
+        SelectToolSetting, "/schunk/driver/select_tool_setting"
+    )
+    assert cli.wait_for_service(timeout_sec=2.0)
+
+    # Test all valid tool indices (0-3)
+    for tool_index in range(4):
+        req = SelectToolSetting.Request()
+        req.tool_index = tool_index
+        result = call_service(service_client_node, cli, req)
+        assert result is not None, f"Should get response for tool_index {tool_index}"
+        assert (
+            result.success is True
+        ), f"Tool setting {tool_index} selection should succeed"
+        assert result.error_message == "", "No error message on success"
+
+
+def test_select_tool_setting_invalid_index(service_client_node):
+    """Test the select_tool_setting service with invalid tool indices."""
+    cli = service_client_node.create_client(
+        SelectToolSetting, "/schunk/driver/select_tool_setting"
+    )
+    assert cli.wait_for_service(timeout_sec=2.0)
+
+    # Test invalid tool indices
+    invalid_indices = [4, 5, 10, 255]
+    for tool_index in invalid_indices:
+        req = SelectToolSetting.Request()
+        req.tool_index = tool_index
+        result = call_service(service_client_node, cli, req)
+        assert result is not None, f"Should get response for tool_index {tool_index}"
+        assert (
+            result.success is False
+        ), f"Tool setting {tool_index} should fail (invalid)"
+        assert (
+            len(result.error_message) > 0
+        ), "Should have error message for invalid index"
+
+
+def test_select_noise_filter_service(service_client_node):
+    """Test the select_noise_filter service with valid filter numbers."""
+    cli = service_client_node.create_client(
+        SelectNoiseFilter, "/schunk/driver/select_noise_filter"
+    )
+    assert cli.wait_for_service(timeout_sec=2.0)
+
+    # Test all valid filter numbers (0-4)
+    for filter_number in range(5):
+        req = SelectNoiseFilter.Request()
+        req.filter_number = filter_number
+        result = call_service(service_client_node, cli, req)
+        assert (
+            result is not None
+        ), f"Should get response for filter_number {filter_number}"
+        assert (
+            result.success is True
+        ), f"Noise filter {filter_number} selection should succeed"
+        assert result.error_message == "", "No error message on success"
+
+
+def test_select_noise_filter_invalid_number(service_client_node):
+    """Test the select_noise_filter service with invalid filter numbers."""
+    cli = service_client_node.create_client(
+        SelectNoiseFilter, "/schunk/driver/select_noise_filter"
+    )
+    assert cli.wait_for_service(timeout_sec=2.0)
+
+    # Test invalid filter numbers
+    invalid_numbers = [5, 6, 10, 255]
+    for filter_number in invalid_numbers:
+        req = SelectNoiseFilter.Request()
+        req.filter_number = filter_number
+        result = call_service(service_client_node, cli, req)
+        assert (
+            result is not None
+        ), f"Should get response for filter_number {filter_number}"
+        assert (
+            result.success is False
+        ), f"Noise filter {filter_number} should fail (invalid)"
+        assert (
+            len(result.error_message) > 0
+        ), "Should have error message for invalid number"
+
+
+def test_select_tool_setting_sequence(service_client_node):
+    """Test switching between different tool settings."""
+    cli = service_client_node.create_client(
+        SelectToolSetting, "/schunk/driver/select_tool_setting"
+    )
+    assert cli.wait_for_service(timeout_sec=2.0)
+
+    # Switch through several tool settings
+    sequence = [0, 1, 2, 3, 0]
+    for tool_index in sequence:
+        req = SelectToolSetting.Request()
+        req.tool_index = tool_index
+        result = call_service(service_client_node, cli, req)
+        assert result.success, f"Tool setting {tool_index} should succeed in sequence"
+
+
+def test_select_noise_filter_sequence(service_client_node):
+    """Test switching between different noise filters."""
+    cli = service_client_node.create_client(
+        SelectNoiseFilter, "/schunk/driver/select_noise_filter"
+    )
+    assert cli.wait_for_service(timeout_sec=2.0)
+
+    # Switch through several filters
+    sequence = [0, 2, 4, 1, 0]
+    for filter_number in sequence:
+        req = SelectNoiseFilter.Request()
+        req.filter_number = filter_number
+        result = call_service(service_client_node, cli, req)
+        assert (
+            result.success
+        ), f"Noise filter {filter_number} should succeed in sequence"
+
+
+def test_tool_and_filter_services_concurrent(service_client_node):
+    """Test calling tool setting and noise filter services concurrently."""
+    executor = MultiThreadedExecutor()
+    executor.add_node(service_client_node)
+    executor_thread = threading.Thread(target=executor.spin, daemon=True)
+    executor_thread.start()
+
+    tool_cli = service_client_node.create_client(
+        SelectToolSetting, "/schunk/driver/select_tool_setting"
+    )
+    filter_cli = service_client_node.create_client(
+        SelectNoiseFilter, "/schunk/driver/select_noise_filter"
+    )
+
+    assert tool_cli.wait_for_service(timeout_sec=2.0)
+    assert filter_cli.wait_for_service(timeout_sec=2.0)
+
+    results = {"tool": [], "filter": []}
+    errors = []
+    lock = threading.Lock()
+
+    def call_tool():
+        try:
+            req = SelectToolSetting.Request()
+            req.tool_index = 1
+            future = tool_cli.call_async(req)
+            executor.spin_until_future_complete(future, timeout_sec=5.0)
+            with lock:
+                results["tool"].append(future.result())
+        except Exception as e:
+            with lock:
+                errors.append(("tool", e))
+
+    def call_filter():
+        try:
+            req = SelectNoiseFilter.Request()
+            req.filter_number = 2
+            future = filter_cli.call_async(req)
+            executor.spin_until_future_complete(future, timeout_sec=5.0)
+            with lock:
+                results["filter"].append(future.result())
+        except Exception as e:
+            with lock:
+                errors.append(("filter", e))
+
+    threads = [threading.Thread(target=call_tool), threading.Thread(target=call_filter)]
+
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10.0)
+
+    executor.shutdown()
+    executor_thread.join()
+
+    assert len(errors) == 0, f"Concurrent calls should not error: {errors}"
+    assert len(results["tool"]) == 1 and results["tool"][0] is not None
+    assert len(results["filter"]) == 1 and results["filter"][0] is not None
+    assert results["tool"][0].success
+    assert results["filter"][0].success
