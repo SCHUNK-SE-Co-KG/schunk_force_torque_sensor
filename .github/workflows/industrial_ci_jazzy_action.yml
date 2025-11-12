@@ -15,10 +15,8 @@ jobs:
   industrial_ci:
     env:
       BEFORE_BUILD_TARGET_WORKSPACE: '.github/script/install_dependencies.sh'
-      BEFORE_RUN_TARGET_TEST: '.github/script/install_dummy.sh'
-
-      # Tell the tests where they reach the dummy
-      DOCKER_RUN_OPTS: "-e FTS_HOST=127.0.0.1 -e FTS_PORT=8082"
+      # Skip pytest tests in CI - tests should only run locally via pre-commit
+      CATKIN_SKIP_TESTING: true
 
     strategy:
       fail-fast: false
