@@ -136,6 +136,11 @@ For high-frequency RT applications, consider using a industrial Ethernet variant
 | `/schunk/driver/send_command` | `schunk_fts_interfaces/SendCommand` | Send raw command (advanced) |
 | `/schunk/driver/set_parameter` | `schunk_fts_interfaces/SetParameter` | Set sensor parameter (advanced) |
 
+## Multiple Sensors
+
+Right now it is not possible to operate multiple sensors at the same time using UDP as the streaming port can not be changed on a firmware level.
+If you have a multi-sensor application consider using a sensor version for industrial ethernet like EtherCat or PROFINET
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
