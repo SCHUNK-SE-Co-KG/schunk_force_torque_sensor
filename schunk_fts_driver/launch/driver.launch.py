@@ -34,8 +34,13 @@ streaming_port = DeclareLaunchArgument(
     default_value="54843",
     description="The sensor's UDP/IP streaming port",
 )
+namespace = DeclareLaunchArgument(
+    "namespace",
+    default_value="schunk",
+    description="The node's namespace",
+)
 
-args = [host, port, streaming_port]
+args = [host, port, streaming_port, namespace]
 
 
 def generate_launch_description():
@@ -44,7 +49,7 @@ def generate_launch_description():
         + [
             Node(
                 package="schunk_fts_driver",
-                namespace="schunk",
+                namespace=LaunchConfiguration("namespace"),
                 executable="driver.py",
                 name="driver",
                 parameters=[

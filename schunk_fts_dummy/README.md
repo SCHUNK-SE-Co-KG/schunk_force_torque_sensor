@@ -1,25 +1,34 @@
 # SCHUNK Force-Torque Sensor Dummy
 
-A standalone dummy for testing and development.
+Rust-based sensor simulator for testing without hardware.
 
-## Build and install
-Install _Rust_ according to the official [documentation](https://www.rust-lang.org/tools/install):
+## Quick Start
+
+### Install Rust
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 ```
 
-Inside this package, use
-
+### Run
 ```bash
+cd schunk_fts_dummy
 cargo run
 ```
-to build and start the sensor dummy.
 
-
-## Running tests
-Inside this repository, run tests with
-
-```bash
-cargo test  # <individual_test>
+Expected output:
 ```
-Append the `-- --nocapture` flag to see print output.
+SCHUNK Force-Torque Sensor Dummy
+Listening on:
+  TCP: 127.0.0.1:8082 (commands)
+  UDP: 127.0.0.1:52964 -> client:54843 (data stream)
+```
+
+## Differences from Real Sensor
+
+| Feature | Real Sensor | Dummy |
+|---------|-------------|-------|
+| Port | 82 (requires root) | 8082 |
+| IP | 192.168.0.100 | 127.0.0.1 |
+| Data | Real measurements | Random ± noise |
+| Commands | Affects sensor | Simulated response only |

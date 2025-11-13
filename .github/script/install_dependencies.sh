@@ -3,7 +3,7 @@ cd $HOME
 apt-get install -y socat
 
 # Python dependencies
-python_deps="requests"
+python_deps="requests psutil"
 os_name=$(lsb_release -cs)
 
 case $os_name in

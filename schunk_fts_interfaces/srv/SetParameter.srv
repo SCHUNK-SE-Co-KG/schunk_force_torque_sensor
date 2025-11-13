@@ -1,0 +1,8 @@
+# Request: Parameter index, subindex, and value as hex strings
+string param_index
+string param_subindex
+string param_value
+---
+# Response
+bool success
+string error_message # Empty if success, contains error description otherwise

@@ -1,0 +1,6 @@
+# Request: Command ID (e.g., "12" for Tare, "40" for Start UDP Stream)
+string command_id
+---
+# Response
+bool success
+string error_message # Empty if success, contains error description otherwise

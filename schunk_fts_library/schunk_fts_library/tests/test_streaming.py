@@ -1,7 +1,23 @@
-from schunk_fts_library.utility import Stream, FTDataBuffer
+# Copyright 2025 SCHUNK SE & Co. KG
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see <https://www.gnu.org/licenses/>.
+# --------------------------------------------------------------------------------
+from schunk_fts_library.utility import Stream
 import os
 import time
 from threading import Thread
+import struct
 
 
 PORT = int(os.getenv("FTS_STREAMING_PORT", 54843))
@@ -57,9 +73,9 @@ def test_stream_can_be_reused():
 
 def test_stream_supports_reading_data(send_messages):
     data = {
-        "sync": 0xFFFF,
+        "sync": b"\xFF\xFF",
         "counter": 42,
-        "payload": 29,
+        "length": 29,
         "id": 1,
         "status_bits": 0x00000000,
         "fx": 1.0,
@@ -69,53 +85,41 @@ def test_stream_supports_reading_data(send_messages):
         "ty": -17.358,
         "tz": 23.001,
     }
-    buffer = FTDataBuffer()
-    msg = buffer.encode(data=data)
 
-    # Empty return when not open
+    # Build binary packet (matches FTDataBuffer.decode)
+    msg = bytearray(data["sync"]) + struct.pack(
+        "<HHB I ffffff",
+        data["counter"],
+        data["length"],
+        data["id"],
+        data["status_bits"],
+        data["fx"],
+        data["fy"],
+        data["fz"],
+        data["tx"],
+        data["ty"],
+        data["tz"],
+    )
+
     stream = Stream(port=8001)
-    assert stream.read() == bytearray()
+    assert stream.read() == list()
 
     # Succeeds when open.
     # Make sure to send data after we bind to the port to not miss it.
     with stream:
         send_messages(8001, [msg])
         time.sleep(0.1)
-        assert stream.read() == msg
+        result = stream.read()
 
-
-def test_stream_returns_only_most_recent_data(send_messages):
-    messages = []
-    buffer = FTDataBuffer()
-    for id in [1, 2, 3, 4]:
-        messages.append(
-            buffer.encode(
-                data={
-                    "sync": 0xFFFF,
-                    "counter": id,
-                    "payload": 29,
-                    "id": id,
-                    "status_bits": 0x00000000,
-                    "fx": 1.0,
-                    "fy": 2.0,
-                    "fz": 3.0,
-                    "tx": 4.0,
-                    "ty": 5.0,
-                    "tz": 6.0,
-                }
-            )
-        )
-
-    with Stream(port=8001) as stream:
-        send_messages(8001, messages)
-        time.sleep(0.1)
-        assert stream.read() == messages[-1]
+        # Verify raw bytes match what was sent
+        assert isinstance(result, list)
+        assert result == [msg]
 
 
 def test_stream_returns_immediately_without_data():
     with Stream(port=8001) as stream:
         start = time.perf_counter()
-        assert stream.read() == bytearray()
+        assert stream.read() == list()
         stop = time.perf_counter()
         elapsed = (stop - start) * 1000  # ms
         assert elapsed < 1.0

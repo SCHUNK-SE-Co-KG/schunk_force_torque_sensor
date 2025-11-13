@@ -1,0 +1,7 @@
+# Request: Noise Reduction Filter Number (0-4)
+# Filter numbers correspond to rolling average factors: 0=1, 1=2, 2=4, 3=8, 4=16
+uint8 filter_number
+---
+# Response
+bool success
+string error_message # Empty if success, contains error description otherwise

@@ -1,15 +1,29 @@
+# Copyright 2025 SCHUNK SE & Co. KG
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+# more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see <https://www.gnu.org/licenses/>.
+# --------------------------------------------------------------------------------
 import struct
 import socket
 from socket import socket as Socket
 from threading import Lock, Event
 from typing import TypedDict
-
-from multiprocessing import Array
-import ctypes
+import time
+from queue import Queue, Empty, Full
 
 
 class FTData(TypedDict):
-    sync: int
+    sync: bytes
     counter: int
     payload: int
     id: int
@@ -23,83 +37,66 @@ class FTData(TypedDict):
 
 
 class FTDataBuffer(object):
-    def __init__(self) -> None:
-        self._data = Array(ctypes.c_double, 11)  # all equal for simplicity
-        self._length: int = 35
-        self.seq = ctypes.c_uint64(0)
+    def __init__(self, maxsize=100) -> None:
+        self._queue: Queue[FTData] = Queue(maxsize=maxsize)
+        self._last_packet_time = time.monotonic()
+        self._no_data_warning_printed = False
 
     def __len__(self):
-        return self._length
+        return self._queue.qsize()
 
-    def put(self, data: FTData) -> None:
-        self.seq.value += 1  # make it odd
-        self._data[0] = data["sync"]
-        self._data[1] = data["counter"]
-        self._data[2] = data["payload"]
-        self._data[3] = data["id"]
-        self._data[4] = data["status_bits"]
-        self._data[5] = data["fx"]
-        self._data[6] = data["fy"]
-        self._data[7] = data["fz"]
-        self._data[8] = data["tx"]
-        self._data[9] = data["ty"]
-        self._data[10] = data["tz"]
-        self.seq.value += 1  # make it even
-
-    def get(self) -> FTData:
-        while True:
-            before = self.seq.value
-            if before % 2 != 0:  # put in progress
-                continue
-            data = FTData(
-                sync=int(self._data[0]),
-                counter=int(self._data[1]),
-                payload=int(self._data[2]),
-                id=int(self._data[3]),
-                status_bits=int(self._data[4]),
-                fx=self._data[5],
-                fy=self._data[6],
-                fz=self._data[7],
-                tx=self._data[8],
-                ty=self._data[9],
-                tz=self._data[10],
+    def put(self, packet: bytearray) -> None:
+        try:
+            self._queue.put_nowait(packet)
+            self._no_data_warning_printed = (
+                False  # Reset warning flag when data resumes
             )
-            stop = self.seq.value
-            if before == stop:
-                return data
+        except Full:
+            pass
 
-    def encode(self, data: FTData) -> bytearray:
-        result = bytearray()
-        result.extend(bytes(struct.pack("H", data["sync"])))
-        result.extend(bytes(struct.pack("H", data["counter"])))
-        result.extend(bytes(struct.pack("H", data["payload"])))
-        result.extend(bytes(struct.pack("B", data["id"])))
-        result.extend(bytes(struct.pack("i", data["status_bits"])))
-        result.extend(bytes(struct.pack("f", data["fx"])))
-        result.extend(bytes(struct.pack("f", data["fy"])))
-        result.extend(bytes(struct.pack("f", data["fz"])))
-        result.extend(bytes(struct.pack("f", data["tx"])))
-        result.extend(bytes(struct.pack("f", data["ty"])))
-        result.extend(bytes(struct.pack("f", data["tz"])))
-        return result
+    def get(self) -> FTData | None:
+        try:
+            packet = self._queue.get(timeout=0.1)
+            self._last_packet_time = time.monotonic()
+            return self.decode(packet)
+        except Empty:
+            if (
+                time.monotonic() - self._last_packet_time > 1.0
+            ):  # return empty FTData to indicate no signal
+                if not self._no_data_warning_printed:
+                    print("FTDataBuffer: No data received anymore")
+                    self._no_data_warning_printed = True
+                return FTData(
+                    sync=b"",
+                    counter=0,
+                    payload=0,
+                    id=0,
+                    status_bits=0,
+                    fx=0.0,
+                    fy=0.0,
+                    fz=0.0,
+                    tx=0.0,
+                    ty=0.0,
+                    tz=0.0,
+                )
+            return None
 
-    def decode(self, data: bytearray) -> FTData:
-        header = data[:6]
-        payload = data[6:]
-        result = FTData(
-            sync=struct.unpack("<H", header[0:2])[0],
-            counter=struct.unpack("<H", header[2:4])[0],
-            payload=struct.unpack("<H", header[4:6])[0],
-            id=struct.unpack("<B", payload[0:1])[0],
-            status_bits=struct.unpack("<I", payload[1:5])[0],
-            fx=struct.unpack("<f", payload[5:9])[0],
-            fy=struct.unpack("<f", payload[9:13])[0],
-            fz=struct.unpack("<f", payload[13:17])[0],
-            tx=struct.unpack("<f", payload[17:21])[0],
-            ty=struct.unpack("<f", payload[21:25])[0],
-            tz=struct.unpack("<f", payload[25:29])[0],
+    @staticmethod
+    def decode(data: bytearray) -> FTData:
+        values = struct.unpack("<HHB I ffffff", data[2:])  # skip sync (first 2 bytes)
+        return FTData(
+            sync=data[0:2],
+            counter=values[0],
+            payload=values[1],
+            id=values[2],
+            status_bits=values[3],
+            fx=values[4],
+            fy=values[5],
+            fz=values[6],
+            tx=values[7],
+            ty=values[8],
+            tz=values[9],
         )
-        return result
 
 
 class Stream(object):
@@ -113,18 +110,18 @@ class Stream(object):
         with self._lock:
             return self._is_open
 
-    def read(self) -> bytearray:
-        msg = bytearray()
+    def read(self) -> list[bytes]:
+        packets = []
         if self.is_open():
-            latest_data = None
             while True:
                 try:
-                    latest_data, _ = self.socket.recvfrom(1024)
+                    data, _ = self.socket.recvfrom(1024)
+                    packets.append(data)
                 except BlockingIOError:
                     break
-            if latest_data:
-                msg.extend(latest_data)
-        return msg
+                except Exception:
+                    break
+        return packets
 
     def __enter__(self) -> "Stream":
         if self.port < 1024 or self.port > 65535:
@@ -156,9 +153,11 @@ class Connection(object):
     def __init__(self, host: str, port: int) -> None:
         self.host = host
         self.port = port
-        self._reset_socket()
+        self._lock: Lock = Lock()
         self.is_open: bool = False
         self.persistent: Event = Event()
+        with self._lock:
+            self._reset_socket()
 
     def send(self, data: bytearray) -> bool:
         if not self.is_open:
@@ -178,7 +177,11 @@ class Connection(object):
         data = bytearray()
         if not self.is_open:
             return data
-        data = bytearray(self.socket.recv(1024))
+        try:
+            data = bytearray(self.socket.recv(1024))
+        except OSError as e:
+            print(f"Receive: General socket error: {e}")
+            self.is_open = False
         return data
 
     def __bool__(self) -> bool:
@@ -192,30 +195,39 @@ class Connection(object):
         return False
 
     def close(self) -> None:
-        self.__exit__(None, None, None)
-        self.persistent.clear()
+        with self._lock:
+            self.persistent.clear()
+            self._close_socket()
+            # Ensure socket is fully reset for clean reconnection
+            self._reset_socket()
 
     def __enter__(self) -> "Connection":
-        if self.is_open:
+        with self._lock:
+            if self.is_open:
+                return self
+            try:
+                if self.socket.fileno() == -1:  # already closed once
+                    self._reset_socket()
+                self.socket.connect((self.host, self.port))
+                self.is_open = True
+            except socket.gaierror as e:
+                print(f"Connect: Address-related error: {e}")
+            except socket.timeout:
+                print("Connect: Timed out.")
+            except ConnectionRefusedError as e:
+                print(f"Connect: Refused by the server: {e}")
+            except OSError as e:
+                print(f"Connect: General socket error: {e}")
             return self
-        try:
-            if self.socket.fileno() == -1:  # already closed once
-                self._reset_socket()
-            self.socket.connect((self.host, self.port))
-            self.is_open = True
-        except socket.gaierror as e:
-            print(f"Connect: Address-related error: {e}")
-        except socket.timeout:
-            print("Connect: Timed out.")
-        except ConnectionRefusedError as e:
-            print(f"Connect: Refused by the server: {e}")
-        except OSError as e:
-            print(f"Connect: General socket error: {e}")
-        return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        if self.persistent.is_set():
-            return
+        with self._lock:
+            if self.persistent.is_set():
+                return
+            self._close_socket()
+
+    def _close_socket(self) -> None:
+        """Internal method to close the socket. Must be called with lock held."""
         if self.is_open:
             try:
                 self.socket.shutdown(socket.SHUT_RDWR)
@@ -226,9 +238,14 @@ class Connection(object):
             self.socket.close()
 
     def _reset_socket(self) -> None:
+        """Internal method to reset the socket. Must be called with lock held."""
         self.socket: Socket = Socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.settimeout(2)
-        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError as e:
+            # Socket might be in a bad state, log but don't crash
+            print(f"_reset_socket: Could not set TCP_NODELAY: {e}")
 
 
 class Message(object):
@@ -251,9 +268,12 @@ class Message(object):
     def to_bytes(self) -> bytearray:
         payload = bytearray()
         for field in getattr(self, "__fields__", []):
-            value = getattr(self, field)
-            little_endian_bytes = bytes.fromhex(value)[::-1]
-            payload.extend(little_endian_bytes)
+            try:
+                value = getattr(self, field)
+                little_endian_bytes = bytes.fromhex(value)[::-1]
+                payload.extend(little_endian_bytes)
+            except Exception as e:
+                print(f"to_bytes: Error processing field '{field}': {e}")
         self.payload_len = len(payload)
         data = bytearray(
             bytes.fromhex(self.sync)
@@ -376,4 +396,23 @@ class CommandResponse(Message):
         self.payload_len = struct.unpack("H", data[4:6])[0]
         self.command_id = data[6:7].hex()
         self.error_code = data[7:8].hex()
+        return True
+
+
+class CommandWithParameterRequest(Message):
+    """Command request with a single uint8 parameter byte."""
+
+    __fields__ = ["command_id", "parameter"]
+
+    def __init__(self) -> None:
+        super().__init__()
+        for field in self.__fields__:
+            setattr(self, field, "")
+
+    def from_bytes(self, data: bytearray) -> bool:
+        self.sync = data[0:2].hex()
+        self.counter = struct.unpack("H", data[2:4])[0]
+        self.payload_len = struct.unpack("H", data[4:6])[0]
+        self.command_id = data[6:7].hex()
+        self.parameter = data[7:8].hex()
         return True
