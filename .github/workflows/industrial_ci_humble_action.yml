@@ -15,8 +15,7 @@ jobs:
   industrial_ci:
     env:
       BEFORE_BUILD_TARGET_WORKSPACE: '.github/script/install_dependencies.sh'
-      # Skip pytest tests in CI - tests should only run locally via pre-commit
-      CATKIN_SKIP_TESTING: true
+      BEFORE_RUN_TARGET_TEST: '.github/script/install_dummy.sh'
 
     strategy:
       fail-fast: false
