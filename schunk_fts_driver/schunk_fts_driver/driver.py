@@ -286,8 +286,8 @@ class Driver(Node):
             # Skip packet loss check right after reconnection
             if self._last_counter != -1 and counter != (self._last_counter + 1) % 65536:
                 packets_skipped = (counter - self._last_counter - 1 + 65536) % 65536
-                print(
-                    f"!!! Consumer WARNING: Loop is too slow! "
+                self.get_logger().warn(
+                    f"Loop is too slow! "
                     f"Skipped {packets_skipped} packets. "
                     f"(Last: {self._last_counter}, New: {counter})"
                 )
