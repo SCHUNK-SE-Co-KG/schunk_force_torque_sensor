@@ -14,7 +14,9 @@
   "runArgs": [
     "--net=host",
     //"--device=/dev/ttyUSB0",
-    "--env=ROS_LOCALHOST_ONLY=1"
+    "--env=ROS_LOCALHOST_ONLY=1",
+    "-v", "/dev:/dev",
+    "--privileged"
   ],
   "remoteUser": "root",
   "customizations": {
