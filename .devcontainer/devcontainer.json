@@ -31,6 +31,5 @@
       ]
     }
   },
-  "postCreateCommand": "sudo apt update && rosdep update && rosdep install --from-paths /workspace/src --ignore-src -y && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && pip install -e /workspace/src/schunk_fts_driver && pip install -e /workspace/src/schunk_fts_library && pip install pre-commit && git config --global --add safe.directory /workspace/src && pre-commit install && cd /workspace && colcon build --symlink-install",
-  //"postStartCommand": "echo 'source /workspace/install/setup.bash' >> ~/.bashrc"
+  "postCreateCommand": "bash /workspace/src/devcontainer_post_create.sh"
 }
