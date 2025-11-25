@@ -16,88 +16,202 @@
 from schunk_fts_driver.driver import Driver
 from threading import Thread
 import time
+import rclpy
 
 
 def test_driver_uses_dedicated_callback_group_for_publishing_ft_data(ros2):
     driver = Driver("driver")
 
-    driver.on_configure(state=None)
-    driver.on_activate(state=None)
+    try:
+        driver.on_configure(state=None)
+        driver.on_activate(state=None)
 
-    for handler in driver.ft_data_publisher.event_handlers:
-        assert handler.callback_group != driver.default_callback_group
-        assert handler.callback_group == driver.callback_group
+        for handler in driver.ft_data_publisher.event_handlers:
+            assert handler.callback_group != driver.default_callback_group
+            assert handler.callback_group == driver.data_callback_group
 
-    driver.on_deactivate(state=None)
-    driver.on_cleanup(state=None)
+        driver.on_deactivate(state=None)
+        driver.on_cleanup(state=None)
+    finally:
+        # Ensure full cleanup even if test fails
+        if driver.thread.is_alive():
+            driver.stop_event.set()
+            driver.thread.join(timeout=2.0)
+        if driver.sensor.is_streaming:
+            driver.sensor.streaming_off()
+        # Ensure connection is fully closed
+        if driver.sensor.connection.is_open:
+            driver.sensor.connection.close()
+        driver.destroy_node()
+        # Give sensor time to reset
+        time.sleep(0.5)
 
 
 def test_driver_uses_library_for_sensor_communication(sensor, ros2):
-    driver = Driver("driver")
-    assert driver.sensor is not None
+    host, port = sensor
+    driver = Driver(
+        "driver",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
+    try:
+        assert driver.sensor is not None
+        assert driver.get_parameter("host").value == host
+        assert driver.get_parameter("port").value == port
+    finally:
+        if driver.sensor.is_streaming:
+            driver.sensor.streaming_off()
+        # Ensure connection is fully closed
+        if driver.sensor.connection.is_open:
+            driver.sensor.connection.close()
+        driver.destroy_node()
+        # Give sensor time to reset
+        time.sleep(0.5)
 
 
 def test_driver_streams_when_configured(sensor, ros2):
-    driver = Driver("driver")
-
-    driver.on_configure(state=None)
-    assert driver.sensor.is_streaming
-    driver.on_cleanup(state=None)
-    assert not driver.sensor.is_streaming
+    host, port = sensor
+    driver = Driver(
+        "driver",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
+    try:
+        driver.on_configure(state=None)
+        assert driver.sensor.is_streaming
+        driver.on_cleanup(state=None)
+        assert not driver.sensor.is_streaming
+    finally:
+        if driver.sensor.is_streaming:
+            driver.sensor.streaming_off()
+        # Ensure connection is fully closed
+        if driver.sensor.connection.is_open:
+            driver.sensor.connection.close()
+        driver.destroy_node()
+        # Give sensor time to reset
+        time.sleep(0.5)
 
 
 def test_publisher_variable_always_exists(sensor, ros2):
-    driver = Driver("test_publisher_variable")
-    for _ in range(3):
-        assert driver.ft_data_publisher is None
-        driver.on_configure(state=None)
-        assert driver.ft_data_publisher is None
+    host, port = sensor
+    driver = Driver(
+        "test_publisher_variable",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
+    try:
+        for _ in range(3):
+            assert driver.ft_data_publisher is None
+            driver.on_configure(state=None)
+            assert driver.ft_data_publisher is None
 
-        driver.on_activate(state=None)
-        assert driver.ft_data_publisher is not None
+            driver.on_activate(state=None)
+            assert driver.ft_data_publisher is not None
 
-        driver.on_deactivate(state=None)
-        assert driver.ft_data_publisher is None
-        driver.on_cleanup(state=None)
-        assert driver.ft_data_publisher is None
+            driver.on_deactivate(state=None)
+            assert driver.ft_data_publisher is None
+            driver.on_cleanup(state=None)
+            assert driver.ft_data_publisher is None
+            # Small delay between cycles
+            time.sleep(0.2)
+    finally:
+        if driver.thread.is_alive():
+            driver.stop_event.set()
+            driver.thread.join(timeout=2.0)
+        if driver.sensor.is_streaming:
+            driver.sensor.streaming_off()
+        # Ensure connection is fully closed
+        if driver.sensor.connection.is_open:
+            driver.sensor.connection.close()
+        driver.destroy_node()
+        # Give sensor time to reset
+        time.sleep(0.5)
 
 
 def test_driver_runs_background_thread_for_publishing(sensor, ros2):
-    driver = Driver("test_background_thread")
-    for i in range(3):
+    host, port = sensor
+    driver = Driver(
+        "test_background_thread",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
+    try:
+        for i in range(3):
+            assert not driver.thread.is_alive()
+
+            driver.on_configure(state=None)
+            assert not driver.thread.is_alive()
+
+            driver.on_activate(state=None)
+            assert driver.thread.is_alive(), f"run: {i}"
+
+            driver.on_deactivate(state=None)
+            assert not driver.thread.is_alive()
+
+            driver.on_cleanup(state=None)
+            assert not driver.thread.is_alive()
+
+        driver.on_shutdown(state=None)
         assert not driver.thread.is_alive()
-
-        driver.on_configure(state=None)
-        assert not driver.thread.is_alive()
-
-        driver.on_activate(state=None)
-        assert driver.thread.is_alive(), f"run: {i}"
-
-        driver.on_deactivate(state=None)
-        assert not driver.thread.is_alive()
-
-        driver.on_cleanup(state=None)
-        assert not driver.thread.is_alive()
-
-    driver.on_shutdown(state=None)
-    assert not driver.thread.is_alive()
+    finally:
+        if driver.thread.is_alive():
+            driver.stop_event.set()
+            driver.thread.join(timeout=2.0)
+        if driver.sensor.is_streaming:
+            driver.sensor.streaming_off()
+        # Ensure connection is fully closed
+        if driver.sensor.connection.is_open:
+            driver.sensor.connection.close()
+        driver.destroy_node()
+        # Give sensor time to reset
+        time.sleep(0.5)
 
 
 def test_publishing_callbacks_dont_collide_with_lifecycle_transitions(sensor, ros2):
-    driver = Driver("test_publishing_collisions")
-    driver.on_configure(state=None)
+    host, port = sensor
+    driver = Driver(
+        "test_publishing_collisions",
+        parameter_overrides=[
+            rclpy.parameter.Parameter("host", rclpy.Parameter.Type.STRING, host),
+            rclpy.parameter.Parameter("port", rclpy.Parameter.Type.INTEGER, port),
+        ],
+    )
+    try:
+        driver.on_configure(state=None)
 
-    # Mimic the timers' callbacks by explicitly calling the publish methods
-    def stay_busy() -> None:
-        driver._publish_data()
+        # Mimic the timers' callbacks by explicitly calling the publish methods
+        def stay_busy() -> None:
+            driver._publish_data()
 
-    timer_thread = Thread(target=stay_busy)
-    timer_thread.start()
+        timer_thread = Thread(target=stay_busy)
+        timer_thread.start()
 
-    start = time.time()
-    while time.time() < start + 2.0:
-        driver.on_activate(state=None)
-        driver.on_deactivate(state=None)
+        start = time.time()
+        while time.time() < start + 2.0:
+            driver.on_activate(state=None)
+            driver.on_deactivate(state=None)
 
-    timer_thread.join()
-    driver.on_cleanup(state=None)
+        timer_thread.join(timeout=5.0)
+        driver.on_cleanup(state=None)
+    finally:
+        # Ensure publishing thread is stopped
+        driver.stop_event.set()
+        if driver.thread.is_alive():
+            driver.thread.join(timeout=2.0)
+        # Ensure sensor streaming is stopped
+        if driver.sensor.is_streaming:
+            driver.sensor.streaming_off()
+        # Ensure connection is fully closed
+        if driver.sensor.connection.is_open:
+            driver.sensor.connection.close()
+        driver.destroy_node()
+        # Give sensor time to reset
+        time.sleep(0.5)

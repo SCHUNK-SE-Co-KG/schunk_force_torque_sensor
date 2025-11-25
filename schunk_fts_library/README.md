@@ -1,29 +1,40 @@
 # SCHUNK FTS Library
-A Low-level communication library for SCHUNK's force-torque sensors.
 
-## ROS2 installation
-In a sourced environment
+Low-level Python library for SCHUNK force-torque sensor communication. Handles TCP commands and UDP data streaming.
 
+## Installation
+
+### With ROS2
 ```bash
+source /opt/ros/humble/setup.bash
 colcon build --packages-select schunk_fts_library
 ```
 
-## Stand-alone installation
-
-It's easiest to use _virtual environments_ to keep your python projects nicely separated.
-Navigate inside this package and install it with
-
+### Standalone
 ```bash
 pip install .
 ```
 
-You can then use pip's conventional tools, such as
-```bash
-pip show schunk_fts_library
-```
+## Quick Start
 
-Uninstall it with
+```python
+from schunk_fts_library.driver import Driver
+import time
 
-```bash
-pip uninstall schunk_fts_library
+# Create driver
+driver = Driver(host="192.168.0.100", port=82, streaming_port=54843)
+
+# Start streaming with auto-reconnect
+driver.streaming_on()
+time.sleep(0.1)
+
+# Read data
+for _ in range(10000):
+    data = driver.sample()
+    if data:
+        print(f"Force: [{data['fx']:.2f}, {data['fy']:.2f}, {data['fz']:.2f}] N")
+        print(f"Torque: [{data['tx']:.2f}, {data['ty']:.2f}, {data['tz']:.2f}] Nm")
+
+# Stop streaming
+driver.streaming_off()
 ```

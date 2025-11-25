@@ -13,7 +13,7 @@ pub async fn stream_ft_data() {
 
     let mut packet_id: u8 = 0;
 
-    let frequency_hz = 8000.0;
+    let frequency_hz = 1000.0;
     let interval = Duration::from_secs_f64(1.0 / frequency_hz);
     let mut next_time = Instant::now();
 
@@ -33,12 +33,12 @@ pub async fn stream_ft_data() {
         let ty = (omega * elapsed + 4.0).sin();
         let tz = (omega * elapsed + 5.0).sin();
 
-        let status_bits: i32 = 0x00000000;
+        let status_bits: i32 = 0x00000001; // assume sensor is ready for operation
 
         // header
-        buf.put_u16(sync);
-        buf.put_u16(counter);
-        buf.put_u16(payload_len);
+        buf.put_u16_le(sync);
+        buf.put_u16_le(counter);
+        buf.put_u16_le(payload_len);
 
         // payload
         buf.put_u8(packet_id);

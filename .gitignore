@@ -16,3 +16,11 @@
 
 # Python bytecode files
 __pycache__/
+
+# Ignore build and install folders
+build/
+install/
+
+# Ignore log files
+*.log
+log/
