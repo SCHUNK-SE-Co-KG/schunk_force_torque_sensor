@@ -17,7 +17,7 @@
 
 ---
 
-A ROS2 driver for SCHUNK force-torque sensors with 1000 Hz data streaming, automatic reconnection, and lifecycle management.
+A ROS2 driver for SCHUNK force-torque sensors with 1000 Hz data streaming, automatic reconnection, and lifecycle management. Works with SCHUNK FT-Sensors with Ethernet Interface Box (FTS IFB-EN Ident.-Number 1651726 or FTS IFB-EN-IP67 Ident.-Number 1651748).
 
 ## Features
 
