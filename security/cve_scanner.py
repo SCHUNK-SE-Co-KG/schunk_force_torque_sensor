@@ -47,10 +47,7 @@ if hasattr(sys.stderr, "reconfigure"):
 try:
     import requests
 except ImportError:
-    sys.exit(
-        "Fehler: 'requests' ist nicht installiert.\n"
-        "  pip install requests"
-    )
+    sys.exit("Fehler: 'requests' ist nicht installiert.\n" "  pip install requests")
 
 # ── Konstanten ───────────────────────────────────────────────────────
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -109,10 +106,25 @@ ROS_UPSTREAM_REPOS: dict[str, str] = {
 
 # Python-Pakete die nur Build/Dev-Tools sind (informativ, aber scanbar)
 PYTHON_DEV_PACKAGES = {
-    "setuptools", "black", "click", "exceptiongroup", "iniconfig",
-    "mypy_extensions", "packaging", "pathspec", "platformdirs",
-    "pluggy", "pytest", "pytest-repeat", "tomli", "typing_extensions",
-    "lark", "coverage", "flake8", "mypy", "pre-commit",
+    "setuptools",
+    "black",
+    "click",
+    "exceptiongroup",
+    "iniconfig",
+    "mypy_extensions",
+    "packaging",
+    "pathspec",
+    "platformdirs",
+    "pluggy",
+    "pytest",
+    "pytest-repeat",
+    "tomli",
+    "typing_extensions",
+    "lark",
+    "coverage",
+    "flake8",
+    "mypy",
+    "pre-commit",
 }
 
 
@@ -141,14 +153,18 @@ def _fetch_ghsa_cvss_score(ghsa_id: str) -> Optional[float]:
     # 1. Advisory-Webseite scrapen (Primärquelle – immer aktuell)
     page_url = f"https://github.com/advisories/{ghsa_id}"
     try:
-        resp = requests.get(page_url, timeout=10, headers={
-            "Accept": "text/html",
-            "User-Agent": "SCHUNK-CVE-Scanner/1.0",
-        })
+        resp = requests.get(
+            page_url,
+            timeout=10,
+            headers={
+                "Accept": "text/html",
+                "User-Agent": "SCHUNK-CVE-Scanner/1.0",
+            },
+        )
         if resp.status_code == 200:
             idx = resp.text.find("/ 10")
             if idx > 0:
-                window = resp.text[max(0, idx - 3000):idx]
+                window = resp.text[max(0, idx - 3000) : idx]
                 numbers = re.findall(r">(\d+\.\d+)<", window)
                 if numbers:
                     return float(numbers[-1])
@@ -158,10 +174,14 @@ def _fetch_ghsa_cvss_score(ghsa_id: str) -> Optional[float]:
     # 2. REST API als Fallback
     url = f"https://api.github.com/advisories/{ghsa_id}"
     try:
-        resp = requests.get(url, timeout=10, headers={
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        })
+        resp = requests.get(
+            url,
+            timeout=10,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
         if resp.status_code == 200:
             data = resp.json()
             for field_name in ("cvss_v4", "cvss"):
@@ -213,13 +233,9 @@ def extract_setup_py_deps(root_dir: Path) -> list[Dependency]:
     seen: set[str] = set()
 
     # Regex für install_requires-Block
-    install_req_re = re.compile(
-        r"install_requires\s*=\s*\[([^\]]+)\]", re.DOTALL
-    )
+    install_req_re = re.compile(r"install_requires\s*=\s*\[([^\]]+)\]", re.DOTALL)
     # Regex für einzelne Paket-Spezifikationen: "name==version" oder "name>=version"
-    pkg_re = re.compile(
-        r"""['"]([a-zA-Z0-9_-]+)\s*(==|>=|<=|~=|!=)\s*([^'"]+)['"]"""
-    )
+    pkg_re = re.compile(r"""['"]([a-zA-Z0-9_-]+)\s*(==|>=|<=|~=|!=)\s*([^'"]+)['"]""")
 
     for setup_py in root_dir.rglob("setup.py"):
         try:
@@ -248,12 +264,14 @@ def extract_setup_py_deps(root_dir: Path) -> list[Dependency]:
             if name in INTERNAL_PACKAGES:
                 continue
 
-            deps.append(Dependency(
-                name=name,
-                version=version,
-                ecosystem="PyPI",
-                source=source,
-            ))
+            deps.append(
+                Dependency(
+                    name=name,
+                    version=version,
+                    ecosystem="PyPI",
+                    source=source,
+                )
+            )
 
     return deps
 
@@ -300,12 +318,14 @@ def extract_cargo_lock_deps(root_dir: Path) -> list[Dependency]:
             if name in ("schunk_fts_dummy",):
                 continue
 
-            deps.append(Dependency(
-                name=name,
-                version=version,
-                ecosystem="crates.io",
-                source=source,
-            ))
+            deps.append(
+                Dependency(
+                    name=name,
+                    version=version,
+                    ecosystem="crates.io",
+                    source=source,
+                )
+            )
 
     return deps
 
@@ -319,8 +339,12 @@ def extract_package_xml_deps(root_dir: Path) -> list[Dependency]:
     seen: set[str] = set()
 
     dep_tags = [
-        "depend", "build_depend", "buildtool_depend",
-        "exec_depend", "run_depend", "test_depend",
+        "depend",
+        "build_depend",
+        "buildtool_depend",
+        "exec_depend",
+        "run_depend",
+        "test_depend",
     ]
 
     for pkg_xml in root_dir.rglob("package.xml"):
@@ -348,21 +372,25 @@ def extract_package_xml_deps(root_dir: Path) -> list[Dependency]:
                 seen.add(name)
 
                 if name in ROS_UPSTREAM_REPOS:
-                    deps.append(Dependency(
-                        name=name,
-                        version="",
-                        ecosystem="ROS",
-                        source=source,
-                        upstream_repo=ROS_UPSTREAM_REPOS[name],
-                    ))
+                    deps.append(
+                        Dependency(
+                            name=name,
+                            version="",
+                            ecosystem="ROS",
+                            source=source,
+                            upstream_repo=ROS_UPSTREAM_REPOS[name],
+                        )
+                    )
                 else:
                     # Allgemeines ROS-Paket ohne bekanntes Mapping
-                    deps.append(Dependency(
-                        name=name,
-                        version="",
-                        ecosystem="ROS",
-                        source=source,
-                    ))
+                    deps.append(
+                        Dependency(
+                            name=name,
+                            version="",
+                            ecosystem="ROS",
+                            source=source,
+                        )
+                    )
 
     return deps
 
@@ -390,13 +418,18 @@ def scan_github_advisories(dep: Dependency) -> list[dict]:
 
     url = "https://api.github.com/advisories"
     try:
-        resp = requests.get(url, timeout=15, params={
-            "ecosystem": "pip",
-            "affects": dep.upstream_repo,
-        }, headers={
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        })
+        resp = requests.get(
+            url,
+            timeout=15,
+            params={
+                "ecosystem": "pip",
+                "affects": dep.upstream_repo,
+            },
+            headers={
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
         if resp.status_code == 200:
             return resp.json()
     except Exception:
@@ -405,10 +438,14 @@ def scan_github_advisories(dep: Dependency) -> list[dict]:
     # Alternative: Direkt über Repository Security Advisories
     repo_url = f"https://api.github.com/repos/{dep.upstream_repo}/security-advisories"
     try:
-        resp = requests.get(repo_url, timeout=15, headers={
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        })
+        resp = requests.get(
+            repo_url,
+            timeout=15,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
         if resp.status_code == 200:
             return resp.json()
     except Exception:
@@ -541,9 +578,7 @@ def _extract_fixed_version(affected: dict) -> str:
     return "–"
 
 
-def parse_vulnerabilities(
-    dep: Dependency, vulns: list[dict]
-) -> list[Vulnerability]:
+def parse_vulnerabilities(dep: Dependency, vulns: list[dict]) -> list[Vulnerability]:
     """Konvertiert rohe OSV-Einträge in Vulnerability-Objekte."""
     results: list[Vulnerability] = []
     for v in vulns:
@@ -573,7 +608,7 @@ def parse_vulnerabilities(
                 severity=severity,
                 cvss_score=cvss_score,
                 affected_package=f"{dep.ecosystem}:{dep.name}"
-                    + (f"@{dep.version}" if dep.version else ""),
+                + (f"@{dep.version}" if dep.version else ""),
                 affected_versions=affected_versions,
                 fixed_version=fixed_version,
                 references=refs[:5],
@@ -613,7 +648,8 @@ def parse_github_advisory(dep: Dependency, advisory: dict) -> Optional[Vulnerabi
         summary=summary[:300],
         severity=severity,
         cvss_score=cvss_score,
-        affected_package=f"ROS:{dep.name}" + (f" ({dep.upstream_repo})" if dep.upstream_repo else ""),
+        affected_package=f"ROS:{dep.name}"
+        + (f" ({dep.upstream_repo})" if dep.upstream_repo else ""),
         affected_versions="",
         fixed_version="–",
         references=refs[:5],
@@ -627,22 +663,16 @@ def generate_markdown_report(result: ScanResult) -> str:
     lines: list[str] = []
     lines.append("# CVE-Scan Report – schunk_force_torque_sensor")
     lines.append("")
-    lines.append(f"**Scan-Zeitpunkt:** {result.timestamp}  ")
-    lines.append(f"**Repository:** {result.repository}  ")
-    lines.append(
-        f"**Abhängigkeiten geprüft:** {result.dependencies_scanned}  "
-    )
-    lines.append(
-        f"**Schwachstellen gefunden:** {result.vulnerabilities_found}"
-    )
+    lines.append(f"**Scan-Zeitpunkt:** {result.timestamp}")
+    lines.append(f"**Repository:** {result.repository}")
+    lines.append(f"**Abhängigkeiten geprüft:** {result.dependencies_scanned}")
+    lines.append(f"**Schwachstellen gefunden:** {result.vulnerabilities_found}")
     lines.append("")
 
     if result.vulnerabilities_found == 0:
         lines.append("> Keine bekannten Schwachstellen gefunden.")
     else:
-        lines.append(
-            f"> {result.vulnerabilities_found} Schwachstelle(n) gefunden!"
-        )
+        lines.append(f"> {result.vulnerabilities_found} Schwachstelle(n) gefunden!")
     lines.append("")
 
     # Aufschlüsselung nach Ökosystem
@@ -652,17 +682,26 @@ def generate_markdown_report(result: ScanResult) -> str:
 
     lines.append("## Zusammenfassung nach Ökosystem")
     lines.append("")
-    lines.append(f"| Ökosystem | Abhängigkeiten | Schwachstellen |")
-    lines.append(f"|-----------|---------------|----------------|")
+    lines.append("| Ökosystem | Abhängigkeiten | Schwachstellen |")
+    lines.append("|-----------|---------------|----------------|")
 
-    pypi_vulns = [v for v in result.vulnerabilities if v.affected_package.startswith("PyPI:")]
-    crate_vulns = [v for v in result.vulnerabilities if v.affected_package.startswith("crates.io:")]
-    ros_vulns = [v for v in result.vulnerabilities if v.affected_package.startswith("ROS:")]
+    pypi_vulns = [
+        v for v in result.vulnerabilities if v.affected_package.startswith("PyPI:")
+    ]
+    crate_vulns = [
+        v for v in result.vulnerabilities if v.affected_package.startswith("crates.io:")
+    ]
+    ros_vulns = [
+        v for v in result.vulnerabilities if v.affected_package.startswith("ROS:")
+    ]
 
     lines.append(f"| PyPI (Python) | {len(pypi_deps)} | {len(pypi_vulns)} |")
     lines.append(f"| crates.io (Rust) | {len(crate_deps)} | {len(crate_vulns)} |")
     lines.append(f"| ROS 2 | {len(ros_deps)} | {len(ros_vulns)} |")
-    lines.append(f"| **Gesamt** | **{result.dependencies_scanned}** | **{result.vulnerabilities_found}** |")
+    lines.append(
+        f"| **Gesamt** | **{result.dependencies_scanned}**"
+        f" | **{result.vulnerabilities_found}** |"
+    )
     lines.append("")
 
     # Geprüfte Abhängigkeiten
@@ -693,10 +732,12 @@ def generate_markdown_report(result: ScanResult) -> str:
         lines.append("| Paket | Ökosystem | Quelle | Upstream |")
         lines.append("|-------|-----------|--------|----------|")
         for d in ros_deps:
-            upstream = f"[{d.upstream_repo}](https://github.com/{d.upstream_repo})" if d.upstream_repo else "–"
-            lines.append(
-                f"| {d.name} | {d.ecosystem} | {d.source} | {upstream} |"
+            upstream = (
+                f"[{d.upstream_repo}](https://github.com/{d.upstream_repo})"
+                if d.upstream_repo
+                else "–"
             )
+            lines.append(f"| {d.name} | {d.ecosystem} | {d.source} | {upstream} |")
         lines.append("")
 
     # Schwachstellen
@@ -740,8 +781,10 @@ def generate_alert_body(result: ScanResult) -> str:
     lines.append("")
     lines.append(f"Scan-Zeitpunkt: {result.timestamp}")
     lines.append(f"Repository:     {result.repository}")
-    lines.append(f"Schwachstellen: {result.vulnerabilities_found} gesamt, "
-                 f"{len(high)} mit CVSS >= {CVSS_HIGH_THRESHOLD}")
+    lines.append(
+        f"Schwachstellen: {result.vulnerabilities_found} gesamt, "
+        f"{len(high)} mit CVSS >= {CVSS_HIGH_THRESHOLD}"
+    )
     lines.append("")
     lines.append("-" * 68)
 
@@ -760,7 +803,9 @@ def generate_alert_body(result: ScanResult) -> str:
     lines.append("")
     lines.append("-" * 68)
     lines.append("Vollstaendiger Report: security/reports/cve_report.md")
-    lines.append(f"https://github.com/{REPO_NAME}/blob/main/security/reports/cve_report.md")
+    lines.append(
+        f"https://github.com/{REPO_NAME}/blob/main/security/reports/cve_report.md"
+    )
     lines.append("")
     return "\n".join(lines)
 
@@ -780,8 +825,10 @@ def write_alert_output(result: ScanResult, report_dir: Path) -> None:
             with open(gh_output, "a") as f:
                 f.write("high_severity=true\n")
                 f.write(f"high_count={result.high_severity_count}\n")
-                f.write(f"alert_subject=CVE-Alert: {result.high_severity_count} "
-                        "kritische Schwachstelle(n) in schunk_force_torque_sensor\n")
+                f.write(
+                    f"alert_subject=CVE-Alert: {result.high_severity_count} "
+                    "kritische Schwachstelle(n) in schunk_force_torque_sensor\n"
+                )
     else:
         if alert_flag_path.exists():
             alert_flag_path.unlink()
@@ -799,7 +846,7 @@ def save_reports(result: ScanResult, report_dir: Path) -> tuple[Path, Path]:
     md_path = report_dir / "cve_report.md"
 
     json_path.write_text(
-        json.dumps(asdict(result), indent=2, ensure_ascii=False),
+        json.dumps(asdict(result), indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     md_path.write_text(generate_markdown_report(result), encoding="utf-8")
@@ -873,7 +920,10 @@ def run_scan() -> ScanResult:
 
     high_sev = [v for v in all_vulns if v.cvss_score >= CVSS_HIGH_THRESHOLD]
     if high_sev:
-        print(f"   ALERT {len(high_sev)} Schwachstelle(n) mit CVSS >= {CVSS_HIGH_THRESHOLD}!")
+        print(
+            f"   ALERT {len(high_sev)} Schwachstelle(n)"
+            f" mit CVSS >= {CVSS_HIGH_THRESHOLD}!"
+        )
 
     result = ScanResult(
         timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
