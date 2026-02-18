@@ -1,0 +1,33 @@
+CVE-Alert: Kritische Schwachstellen in schunk_force_torque_sensor
+====================================================================
+
+Scan-Zeitpunkt: 2026-02-18T13:48:19Z
+Repository:     SCHUNK-SE-Co-KG/schunk_force_torque_sensor
+Schwachstellen: 5 gesamt, 3 mit CVSS >= 7.0
+
+--------------------------------------------------------------------
+
+  GHSA-2xpw-w6gg-jr37  (CVSS 8.9)
+  Paket:       PyPI:urllib3@2.5.0
+  CVE:         CVE-2025-66471
+  Fix-Version: 2.6.0
+  urllib3 streaming API improperly handles highly compressed data
+  -> https://github.com/urllib3/urllib3/security/advisories/GHSA-2xpw-w6gg-jr37
+
+  GHSA-38jv-5279-wg99  (CVSS 8.9)
+  Paket:       PyPI:urllib3@2.5.0
+  CVE:         CVE-2026-21441
+  Fix-Version: 2.6.3
+  Decompression-bomb safeguards bypassed when following HTTP redirects (streaming API)
+  -> https://github.com/urllib3/urllib3/security/advisories/GHSA-38jv-5279-wg99
+
+  GHSA-gm62-xv2j-4w53  (CVSS 8.9)
+  Paket:       PyPI:urllib3@2.5.0
+  CVE:         CVE-2025-66418
+  Fix-Version: 2.6.0
+  urllib3 allows an unbounded number of links in the decompression chain
+  -> https://github.com/urllib3/urllib3/security/advisories/GHSA-gm62-xv2j-4w53
+
+--------------------------------------------------------------------
+Vollstaendiger Report: security/reports/cve_report.md
+https://github.com/SCHUNK-SE-Co-KG/schunk_force_torque_sensor/blob/main/security/reports/cve_report.md

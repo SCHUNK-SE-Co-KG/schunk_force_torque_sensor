@@ -1,0 +1,601 @@
+{
+  "timestamp": "2026-02-18T13:48:19Z",
+  "repository": "SCHUNK-SE-Co-KG/schunk_force_torque_sensor",
+  "dependencies_scanned": 71,
+  "vulnerabilities_found": 5,
+  "high_severity_count": 3,
+  "dependencies": [
+    {
+      "name": "black",
+      "version": "25.1.0",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "certifi",
+      "version": "2025.4.26",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.2",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "click",
+      "version": "8.2.1",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "exceptiongroup",
+      "version": "1.3.0",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "idna",
+      "version": "3.10",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.1.0",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "lark",
+      "version": "1.2.2",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "mypy_extensions",
+      "version": "1.1.0",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "numpy",
+      "version": "2.2.6",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "packaging",
+      "version": "25.0",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "pathspec",
+      "version": "0.12.1",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "platformdirs",
+      "version": "4.3.8",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "pluggy",
+      "version": "1.5.0",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "pytest",
+      "version": "8.3.5",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "pytest-repeat",
+      "version": "0.9.4",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.2",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "requests",
+      "version": "2.32.4",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "tomli",
+      "version": "2.2.1",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.13.2",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "urllib3",
+      "version": "2.5.0",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_driver\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "psutil",
+      "version": "5.9.0",
+      "ecosystem": "PyPI",
+      "source": "schunk_fts_library\\setup.py",
+      "upstream_repo": ""
+    },
+    {
+      "name": "addr2line",
+      "version": "0.24.2",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "adler2",
+      "version": "2.0.0",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "autocfg",
+      "version": "1.4.0",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "backtrace",
+      "version": "0.3.75",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "bitflags",
+      "version": "2.9.1",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "bytes",
+      "version": "1.10.1",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "cfg-if",
+      "version": "1.0.0",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "gimli",
+      "version": "0.31.1",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "libc",
+      "version": "0.2.172",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "lock_api",
+      "version": "0.4.12",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "memchr",
+      "version": "2.7.4",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "miniz_oxide",
+      "version": "0.8.8",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "mio",
+      "version": "1.0.3",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "object",
+      "version": "0.36.7",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "parking_lot",
+      "version": "0.12.3",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "parking_lot_core",
+      "version": "0.9.10",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "pin-project-lite",
+      "version": "0.2.16",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "proc-macro2",
+      "version": "1.0.95",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "quote",
+      "version": "1.0.40",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "redox_syscall",
+      "version": "0.5.12",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "rustc-demangle",
+      "version": "0.1.24",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "scopeguard",
+      "version": "1.2.0",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "signal-hook-registry",
+      "version": "1.4.5",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "smallvec",
+      "version": "1.15.0",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "socket2",
+      "version": "0.5.9",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "syn",
+      "version": "2.0.101",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "tokio",
+      "version": "1.45.0",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "tokio-macros",
+      "version": "2.5.0",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "unicode-ident",
+      "version": "1.0.18",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "wasi",
+      "version": "0.11.0+wasi-snapshot-preview1",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows-sys",
+      "version": "0.52.0",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows-targets",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows_aarch64_gnullvm",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows_aarch64_msvc",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows_i686_gnu",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows_i686_gnullvm",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows_i686_msvc",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows_x86_64_gnu",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows_x86_64_gnullvm",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "windows_x86_64_msvc",
+      "version": "0.52.6",
+      "ecosystem": "crates.io",
+      "source": "schunk_fts_dummy\\Cargo.lock",
+      "upstream_repo": ""
+    },
+    {
+      "name": "rclpy",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_driver\\package.xml",
+      "upstream_repo": "ros2/rclpy"
+    },
+    {
+      "name": "launch",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_driver\\package.xml",
+      "upstream_repo": "ros2/launch"
+    },
+    {
+      "name": "launch_ros",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_driver\\package.xml",
+      "upstream_repo": "ros2/launch_ros"
+    },
+    {
+      "name": "geometry_msgs",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_driver\\package.xml",
+      "upstream_repo": "ros2/common_interfaces"
+    },
+    {
+      "name": "std_srvs",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_driver\\package.xml",
+      "upstream_repo": "ros2/common_interfaces"
+    },
+    {
+      "name": "sensor_msgs",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_driver\\package.xml",
+      "upstream_repo": "ros2/common_interfaces"
+    },
+    {
+      "name": "diagnostic_msgs",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_driver\\package.xml",
+      "upstream_repo": "ros2/common_interfaces"
+    },
+    {
+      "name": "example_interfaces",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_driver\\package.xml",
+      "upstream_repo": "ros2/example_interfaces"
+    },
+    {
+      "name": "std_msgs",
+      "version": "",
+      "ecosystem": "ROS",
+      "source": "schunk_fts_interfaces\\package.xml",
+      "upstream_repo": "ros2/common_interfaces"
+    }
+  ],
+  "vulnerabilities": [
+    {
+      "vuln_id": "GHSA-2xpw-w6gg-jr37",
+      "summary": "urllib3 streaming API improperly handles highly compressed data",
+      "severity": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:H",
+      "cvss_score": 8.9,
+      "affected_package": "PyPI:urllib3@2.5.0",
+      "affected_versions": "1.0, 1.0.1, 1.0.2, 1.1, 1.10, 1.10.1, 1.10.2, 1.10.3, 1.10.4, 1.11 …",
+      "fixed_version": "2.6.0",
+      "references": [
+        "https://github.com/urllib3/urllib3/security/advisories/GHSA-2xpw-w6gg-jr37",
+        "https://nvd.nist.gov/vuln/detail/CVE-2025-66471",
+        "https://github.com/urllib3/urllib3/commit/c19571de34c47de3a766541b041637ba5f716ed7",
+        "https://github.com/urllib3/urllib3"
+      ],
+      "aliases": [
+        "CVE-2025-66471"
+      ]
+    },
+    {
+      "vuln_id": "GHSA-38jv-5279-wg99",
+      "summary": "Decompression-bomb safeguards bypassed when following HTTP redirects (streaming API)",
+      "severity": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "cvss_score": 8.9,
+      "affected_package": "PyPI:urllib3@2.5.0",
+      "affected_versions": "1.22, 1.23, 1.24, 1.24.1, 1.24.2, 1.24.3, 1.25, 1.25.1, 1.25.10, 1.25.11 …",
+      "fixed_version": "2.6.3",
+      "references": [
+        "https://github.com/urllib3/urllib3/security/advisories/GHSA-38jv-5279-wg99",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-21441",
+        "https://github.com/urllib3/urllib3/commit/8864ac407bba8607950025e0979c4c69bc7abc7b",
+        "https://github.com/urllib3/urllib3",
+        "https://lists.debian.org/debian-lts-announce/2026/01/msg00017.html"
+      ],
+      "aliases": [
+        "CVE-2026-21441"
+      ]
+    },
+    {
+      "vuln_id": "GHSA-gm62-xv2j-4w53",
+      "summary": "urllib3 allows an unbounded number of links in the decompression chain",
+      "severity": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:H",
+      "cvss_score": 8.9,
+      "affected_package": "PyPI:urllib3@2.5.0",
+      "affected_versions": "1.24, 1.24.1, 1.24.2, 1.24.3, 1.25, 1.25.1, 1.25.10, 1.25.11, 1.25.2, 1.25.3 …",
+      "fixed_version": "2.6.0",
+      "references": [
+        "https://github.com/urllib3/urllib3/security/advisories/GHSA-gm62-xv2j-4w53",
+        "https://nvd.nist.gov/vuln/detail/CVE-2025-66418",
+        "https://github.com/urllib3/urllib3/commit/24d7b67eac89f94e11003424bcf0d8f7b72222a8",
+        "https://github.com/urllib3/urllib3"
+      ],
+      "aliases": [
+        "CVE-2025-66418"
+      ]
+    },
+    {
+      "vuln_id": "GHSA-434x-w66g-qw3r",
+      "summary": "bytes has integer overflow in BytesMut::reserve",
+      "severity": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N/E:P",
+      "cvss_score": 5.5,
+      "affected_package": "crates.io:bytes@1.10.1",
+      "affected_versions": "",
+      "fixed_version": "1.11.1",
+      "references": [
+        "https://github.com/tokio-rs/bytes/security/advisories/GHSA-434x-w66g-qw3r",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-25541",
+        "https://github.com/tokio-rs/bytes/commit/d0293b0e35838123c51ca5dfdf468ecafee4398f",
+        "https://github.com/tokio-rs/bytes",
+        "https://github.com/tokio-rs/bytes/releases/tag/v1.11.1"
+      ],
+      "aliases": [
+        "CVE-2026-25541",
+        "RUSTSEC-2026-0007"
+      ]
+    },
+    {
+      "vuln_id": "RUSTSEC-2026-0007",
+      "summary": "Integer overflow in `BytesMut::reserve`",
+      "severity": "UNKNOWN",
+      "cvss_score": 5.5,
+      "affected_package": "crates.io:bytes@1.10.1",
+      "affected_versions": "",
+      "fixed_version": "1.11.1",
+      "references": [
+        "https://crates.io/crates/bytes",
+        "https://rustsec.org/advisories/RUSTSEC-2026-0007.html",
+        "https://github.com/advisories/GHSA-434x-w66g-qw3r"
+      ],
+      "aliases": [
+        "CVE-2026-25541",
+        "GHSA-434x-w66g-qw3r"
+      ]
+    }
+  ]
+}
