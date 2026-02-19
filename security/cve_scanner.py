@@ -1,33 +1,34 @@
 #!/usr/bin/env python3
 """
-CVE-Scanner für das schunk_force_torque_sensor Repository.
+CVE Scanner for the schunk_force_torque_sensor repository.
 
-Scannt drei Ökosysteme auf bekannte Sicherheitslücken:
-  1. Python pip-Pakete   – aus setup.py install_requires (PyPI)
-  2. Rust Crates         – aus Cargo.lock (crates.io)
-  3. ROS 2 Abhängigkeiten – aus package.xml (GitHub Advisory DB)
+Scans three ecosystems for known security vulnerabilities:
+  1. Python pip packages  - from setup.py install_requires (PyPI)
+  2. Rust Crates          - from Cargo.lock (crates.io)
+  3. ROS 2 dependencies   - from package.xml (GitHub Advisory DB)
 
-Datenquellen:
-  • Google OSV API  (https://osv.dev)
-  • GitHub Advisory Database  (REST API + Webseiten-Scraping)
+Data sources:
+  - Google OSV API  (https://osv.dev)
+  - GitHub Advisory Database  (REST API + web scraping)
 
-Ergebnisse werden als Markdown-Report und JSON unter
-security/reports/ abgelegt.
+Results are stored as Markdown report and JSON under
+security/reports/.
 
-Verwendung:
+Usage:
     python security/cve_scanner.py                # Scan + Report
-    python security/cve_scanner.py --json-only    # Nur JSON-Ausgabe
+    python security/cve_scanner.py --json-only    # JSON output only
 
-Voraussetzungen:
+Requirements:
     Python 3.9+, requests (pip install requests)
 
-Autor:  SCHUNK Security Tooling
-Lizenz: GPL-3.0
+Author:  SCHUNK Security Tooling
+License: GPL-3.0
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -38,7 +39,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# ── Stdout auf UTF-8 umstellen (Windows cp1252 crasht bei Emojis) ──
+# ── Force UTF-8 on stdout (Windows cp1252 crashes on emojis) ──
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stderr, "reconfigure"):
@@ -47,9 +48,9 @@ if hasattr(sys.stderr, "reconfigure"):
 try:
     import requests
 except ImportError:
-    sys.exit("Fehler: 'requests' ist nicht installiert.\n" "  pip install requests")
+    sys.exit("Error: 'requests' is not installed.\n" "  pip install requests")
 
-# ── Konstanten ───────────────────────────────────────────────────────
+# ── Constants ────────────────────────────────────────────────────────
 ROOT_DIR = Path(__file__).resolve().parent.parent
 REPORT_DIR = ROOT_DIR / "security" / "reports"
 REPO_NAME = "SCHUNK-SE-Co-KG/schunk_force_torque_sensor"
@@ -58,9 +59,9 @@ OSV_QUERY_URL = "https://api.osv.dev/v1/query"
 OSV_BATCH_URL = "https://api.osv.dev/v1/querybatch"
 OSV_VULN_URL = "https://api.osv.dev/v1/vulns"  # + /{id}
 
-CVSS_HIGH_THRESHOLD = 7.0  # Ab diesem Wert wird ein Alert ausgelöst
+CVSS_HIGH_THRESHOLD = 7.0  # Alert threshold
 
-# Severity-Label → geschätzter CVSS-Basiswert (letzter Fallback)
+# Severity label -> estimated CVSS base score (last-resort fallback)
 SEVERITY_LABEL_SCORES: dict[str, float] = {
     "CRITICAL": 9.0,
     "HIGH": 7.5,
@@ -69,7 +70,7 @@ SEVERITY_LABEL_SCORES: dict[str, float] = {
     "LOW": 2.5,
 }
 
-# ── Interne Pakete (überspringen) ───────────────────────────────────
+# ── Internal packages (skip during scan) ────────────────────────────
 INTERNAL_PACKAGES = {
     "schunk_fts_driver",
     "schunk_fts_library",
@@ -77,7 +78,7 @@ INTERNAL_PACKAGES = {
     "schunk_fts_dummy",
 }
 
-# Build-Tool Pakete (kein Security-Risk)
+# Build-tool packages (no security risk)
 BUILD_TOOL_PACKAGES = {
     "ament_cmake",
     "ament_cmake_pytest",
@@ -91,7 +92,7 @@ BUILD_TOOL_PACKAGES = {
     "python3-pytest",
 }
 
-# ROS 2 Pakete mit bekannten upstream-Quellen (GitHub Advisory scanbar)
+# ROS 2 packages with known upstream sources (scannable via GitHub Advisory)
 ROS_UPSTREAM_REPOS: dict[str, str] = {
     "rclpy": "ros2/rclpy",
     "launch": "ros2/launch",
@@ -104,7 +105,7 @@ ROS_UPSTREAM_REPOS: dict[str, str] = {
     "example_interfaces": "ros2/example_interfaces",
 }
 
-# Python-Pakete die nur Build/Dev-Tools sind (informativ, aber scanbar)
+# Python packages that are build/dev-tools only (informational, but scannable)
 PYTHON_DEV_PACKAGES = {
     "setuptools",
     "black",
@@ -128,29 +129,29 @@ PYTHON_DEV_PACKAGES = {
 }
 
 
-# ── Datenstrukturen ─────────────────────────────────────────────────
+# ── Data structures ───────────────────────────────────────────────────
 @dataclass
 class Dependency:
-    """Eine erkannte Abhängigkeit."""
+    """A detected dependency."""
 
     name: str
     version: str
     ecosystem: str  # "PyPI", "crates.io", "ROS", "GitHub"
-    source: str  # Datei, in der sie gefunden wurde
-    upstream_repo: str = ""  # GitHub-Repo (falls bekannt)
+    source: str  # File where it was found
+    upstream_repo: str = ""  # GitHub repo (if known)
 
 
-# ── CVSS Score Extraktion ────────────────────────────────────────────
+# ── CVSS Score extraction ────────────────────────────────────────────
 def _fetch_ghsa_cvss_score(ghsa_id: str) -> Optional[float]:
-    """Holt den offiziellen numerischen CVSS-Score für ein GitHub Advisory.
+    """Fetch the official numeric CVSS score for a GitHub Advisory.
 
-    Strategie (Priorität):
-    1. GitHub Advisory Webseite scrapen – zeigt IMMER den aktuellsten Score
-       (CVSS 3.x oder 4.0), Pattern: ">X.X<" vor "/ 10"
-    2. GitHub REST API (/advisories/{id}) – Fallback, kann veraltete
-       CVSS 3.1 Scores liefern wenn Advisory auf CVSS 4.0 aktualisiert wurde
+    Strategy (priority):
+    1. Scrape GitHub Advisory web page - always shows the latest score
+       (CVSS 3.x or 4.0), pattern: ">X.X<" before "/ 10"
+    2. GitHub REST API (/advisories/{id}) - fallback, may return outdated
+       CVSS 3.1 scores when advisory was updated to CVSS 4.0
     """
-    # 1. Advisory-Webseite scrapen (Primärquelle – immer aktuell)
+    # 1. Scrape advisory web page (primary source - always up-to-date)
     page_url = f"https://github.com/advisories/{ghsa_id}"
     try:
         resp = requests.get(
@@ -171,7 +172,7 @@ def _fetch_ghsa_cvss_score(ghsa_id: str) -> Optional[float]:
     except Exception:
         pass
 
-    # 2. REST API als Fallback
+    # 2. REST API as fallback
     url = f"https://api.github.com/advisories/{ghsa_id}"
     try:
         resp = requests.get(
@@ -198,7 +199,7 @@ def _fetch_ghsa_cvss_score(ghsa_id: str) -> Optional[float]:
 
 @dataclass
 class Vulnerability:
-    """Eine gefundene Sicherheitslücke."""
+    """A detected security vulnerability."""
 
     vuln_id: str
     summary: str
@@ -213,7 +214,7 @@ class Vulnerability:
 
 @dataclass
 class ScanResult:
-    """Gesamtergebnis eines Scan-Laufs."""
+    """Overall result of a scan run."""
 
     timestamp: str
     repository: str
@@ -225,17 +226,113 @@ class ScanResult:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 1) Python pip-Abhängigkeiten aus setup.py extrahieren
+# 1) Python pip dependencies from setup.py (AST-based parsing)
 # ═══════════════════════════════════════════════════════════════
+def _extract_string_list(node: ast.expr) -> list[str]:
+    """Extract string values from an AST node (List, Tuple, or single string)."""
+    strings: list[str] = []
+    if isinstance(node, (ast.List, ast.Tuple)):
+        for elt in node.elts:
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                strings.append(elt.value)
+    elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+        strings.append(node.value)
+    return strings
+
+
+def _parse_requirement_string(req: str) -> tuple[str, str]:
+    """Parse a PEP 508 requirement string into (name, version).
+
+    Handles formats like:
+      "numpy==2.2.6"
+      "numpy>=2.2.6"
+      "numpy>=2.2.6, <3"
+      "numpy"             (no version)
+      "requests[security]>=2.31"
+
+    Returns (name, first_version) or (name, "") if no version specified.
+    """
+    req = req.strip()
+    if not req:
+        return ("", "")
+
+    # Split on version operators: ==, >=, <=, ~=, !=, <, >
+    match = re.match(r"^([a-zA-Z0-9_.-]+(?:\[[^\]]*\])?)\s*(.*)", req)
+    if not match:
+        return ("", "")
+
+    name_part = match.group(1)
+    version_part = match.group(2).strip()
+
+    # Remove extras like [security]
+    name = re.sub(r"\[.*?\]", "", name_part).strip()
+
+    if not version_part:
+        return (name, "")
+
+    # Extract the first version number
+    ver_match = re.match(r"(?:==|>=|<=|~=|!=|<|>)\s*([^\s,;]+)", version_part)
+    if ver_match:
+        return (name, ver_match.group(1))
+
+    return (name, "")
+
+
+def _parse_setup_py_install_requires(content: str) -> list[tuple[str, str]]:
+    """Parse install_requires from setup.py using Python AST.
+
+    Returns list of (package_name, version_string) tuples.
+    More robust than regex: handles comments, parentheses, logic in
+    install_requires, and all PEP 508 version specifiers.
+    """
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return []
+
+    requirements: list[tuple[str, str]] = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+
+        # Find setup() or setuptools.setup() call
+        func = node.func
+        func_name = ""
+        if isinstance(func, ast.Name):
+            func_name = func.id
+        elif isinstance(func, ast.Attribute):
+            func_name = func.attr
+
+        if func_name != "setup":
+            continue
+
+        # Find install_requires keyword argument
+        for kw in node.keywords:
+            if kw.arg != "install_requires":
+                continue
+
+            req_strings = _extract_string_list(kw.value)
+            for req_str in req_strings:
+                name, version = _parse_requirement_string(req_str)
+                if name:
+                    requirements.append((name, version))
+
+    return requirements
+
+
 def extract_setup_py_deps(root_dir: Path) -> list[Dependency]:
-    """Extrahiert gepinnte Python-Pakete aus allen setup.py install_requires."""
+    """Extract Python packages from all setup.py install_requires using AST.
+
+    Uses Python's ast module instead of regex for robust parsing.
+    Keys dedup on (normalized_name, version) so that different versions
+    of the same package across multiple setup.py files are all scanned.
+    """
     deps: list[Dependency] = []
     seen: set[str] = set()
 
-    # Regex für install_requires-Block
-    install_req_re = re.compile(r"install_requires\s*=\s*\[([^\]]+)\]", re.DOTALL)
-    # Regex für einzelne Paket-Spezifikationen: "name==version" oder "name>=version"
-    pkg_re = re.compile(r"""['"]([a-zA-Z0-9_-]+)\s*(==|>=|<=|~=|!=)\s*([^'"]+)['"]""")
+    # Normalize INTERNAL_PACKAGES for comparison
+    internal_norm = {p.lower().replace("-", "_") for p in INTERNAL_PACKAGES}
 
     for setup_py in root_dir.rglob("setup.py"):
         try:
@@ -244,24 +341,19 @@ def extract_setup_py_deps(root_dir: Path) -> list[Dependency]:
             continue
 
         source = str(setup_py.relative_to(root_dir))
+        requirements = _parse_setup_py_install_requires(content)
 
-        match = install_req_re.search(content)
-        if not match:
-            continue
-
-        block = match.group(1)
-        for pkg_match in pkg_re.finditer(block):
-            name = pkg_match.group(1)
-            version = pkg_match.group(3).strip().rstrip(",")
-
-            # Normalisierter Name für Dedup
+        for name, version in requirements:
             norm_name = name.lower().replace("-", "_")
-            if norm_name in seen:
-                continue
-            seen.add(norm_name)
 
-            # Interne Pakete überspringen
-            if name in INTERNAL_PACKAGES:
+            # Dedup key includes version so different versions are kept
+            dedup_key = f"{norm_name}:{version}"
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+
+            # Skip internal packages
+            if norm_name in internal_norm:
                 continue
 
             deps.append(
@@ -277,14 +369,18 @@ def extract_setup_py_deps(root_dir: Path) -> list[Dependency]:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 2) Rust Crate-Abhängigkeiten aus Cargo.lock extrahieren
+# 2) Rust crate dependencies from Cargo.lock
 # ═══════════════════════════════════════════════════════════════
 def extract_cargo_lock_deps(root_dir: Path) -> list[Dependency]:
-    """Extrahiert Pakete + Versionen aus allen Cargo.lock-Dateien."""
+    """Extract packages + versions from all Cargo.lock files.
+
+    Keys dedup on (name, version) so that multiple versions of the
+    same crate are all scanned individually.
+    """
     deps: list[Dependency] = []
     seen: set[str] = set()
 
-    # Cargo.lock-Format:
+    # Cargo.lock format:
     # [[package]]
     # name = "tokio"
     # version = "1.45.0"
@@ -299,9 +395,9 @@ def extract_cargo_lock_deps(root_dir: Path) -> list[Dependency]:
 
         source = str(cargo_lock.relative_to(root_dir))
 
-        # Jeder [[package]]-Block enthält name + version
+        # Each [[package]] block contains name + version
         blocks = content.split("[[package]]")
-        for block in blocks[1:]:  # Erster Teil ist Header
+        for block in blocks[1:]:  # First part is header
             name_match = name_re.search(block)
             ver_match = version_re.search(block)
             if not name_match or not ver_match:
@@ -310,12 +406,15 @@ def extract_cargo_lock_deps(root_dir: Path) -> list[Dependency]:
             name = name_match.group(1)
             version = ver_match.group(1)
 
-            if name in seen:
+            # Dedup key includes version (Cargo.lock can have multiple
+            # versions of the same crate)
+            dedup_key = f"{name}:{version}"
+            if dedup_key in seen:
                 continue
-            seen.add(name)
+            seen.add(dedup_key)
 
-            # Eigenes Paket überspringen
-            if name in ("schunk_fts_dummy",):
+            # Skip internal packages (uses constant at top of file)
+            if name in INTERNAL_PACKAGES:
                 continue
 
             deps.append(
@@ -331,10 +430,10 @@ def extract_cargo_lock_deps(root_dir: Path) -> list[Dependency]:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 3) ROS 2 Abhängigkeiten aus package.xml extrahieren
+# 3) ROS 2 dependencies from package.xml
 # ═══════════════════════════════════════════════════════════════
 def extract_package_xml_deps(root_dir: Path) -> list[Dependency]:
-    """Extrahiert Abhängigkeiten aus allen package.xml-Dateien."""
+    """Extract dependencies from all package.xml files."""
     deps: list[Dependency] = []
     seen: set[str] = set()
 
@@ -363,7 +462,7 @@ def extract_package_xml_deps(root_dir: Path) -> list[Dependency]:
                 if not name:
                     continue
 
-                # Interne und Build-Tool-Pakete überspringen
+                # Skip internal and build-tool packages
                 if name in INTERNAL_PACKAGES or name in BUILD_TOOL_PACKAGES:
                     continue
 
@@ -382,7 +481,7 @@ def extract_package_xml_deps(root_dir: Path) -> list[Dependency]:
                         )
                     )
                 else:
-                    # Allgemeines ROS-Paket ohne bekanntes Mapping
+                    # Generic ROS package without known mapping
                     deps.append(
                         Dependency(
                             name=name,
@@ -399,43 +498,58 @@ def extract_package_xml_deps(root_dir: Path) -> list[Dependency]:
 # Dedup + Merge
 # ═══════════════════════════════════════════════════════════════
 def deduplicate_deps(deps: list[Dependency]) -> list[Dependency]:
-    """Entfernt doppelte Abhängigkeiten (gleicher Name + Ecosystem)."""
+    """Remove duplicate dependencies (same name + ecosystem + version)."""
     seen: set[str] = set()
     unique: list[Dependency] = []
     for d in deps:
-        key = f"{d.ecosystem}:{d.name}"
+        key = f"{d.ecosystem}:{d.name}:{d.version}"
         if key not in seen:
             seen.add(key)
             unique.append(d)
     return unique
 
 
-# ── GitHub Advisory Scan für ROS upstream repos ──────────────────────
+# ── GitHub Advisory scan for ROS upstream repos ──────────────────────
 def scan_github_advisories(dep: Dependency) -> list[dict]:
-    """Scannt GitHub Advisory Database für ein bestimmtes Repository."""
+    """Scan GitHub Advisory Database for a specific repository.
+
+    Queries multiple ecosystems since ROS packages may have advisories
+    filed under different ecosystems (pip, Go, etc.).
+    Falls back to the repository's own security advisories endpoint.
+    """
     if not dep.upstream_repo:
         return []
 
-    url = "https://api.github.com/advisories"
-    try:
-        resp = requests.get(
-            url,
-            timeout=15,
-            params={
-                "ecosystem": "pip",
-                "affects": dep.upstream_repo,
-            },
-            headers={
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception:
-        pass
+    all_advisories: list[dict] = []
+    seen_ids: set[str] = set()
 
-    # Alternative: Direkt über Repository Security Advisories
+    # Try global advisories endpoint with different ecosystems
+    # (ROS packages are not a recognized ecosystem in GitHub Advisory DB)
+    url = "https://api.github.com/advisories"
+    for ecosystem in ("pip", "go", "rust", "npm"):
+        try:
+            resp = requests.get(
+                url,
+                timeout=15,
+                params={
+                    "ecosystem": ecosystem,
+                    "affects": dep.upstream_repo,
+                },
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+            if resp.status_code == 200:
+                for adv in resp.json():
+                    adv_id = adv.get("ghsa_id", "")
+                    if adv_id and adv_id not in seen_ids:
+                        seen_ids.add(adv_id)
+                        all_advisories.append(adv)
+        except Exception:
+            pass
+
+    # Also check repository-specific security advisories
     repo_url = f"https://api.github.com/repos/{dep.upstream_repo}/security-advisories"
     try:
         resp = requests.get(
@@ -447,11 +561,15 @@ def scan_github_advisories(dep: Dependency) -> list[dict]:
             },
         )
         if resp.status_code == 200:
-            return resp.json()
+            for adv in resp.json():
+                adv_id = adv.get("ghsa_id", "")
+                if adv_id and adv_id not in seen_ids:
+                    seen_ids.add(adv_id)
+                    all_advisories.append(adv)
     except Exception:
         pass
 
-    return []
+    return all_advisories
 
 
 # ── OSV-API-Abfragen ────────────────────────────────────────────────
@@ -468,6 +586,7 @@ def query_osv_batch(deps: list[Dependency]) -> list[list[dict]]:
     if not deps:
         return []
 
+    # Only query deps with a known OSV ecosystem
     osv_ecosystems = {"PyPI", "Debian", "npm", "crates.io", "Go", "Maven"}
 
     queries = []
@@ -498,7 +617,7 @@ def query_osv_batch(deps: list[Dependency]) -> list[list[dict]]:
 
 
 def fetch_vuln_details(vuln_id: str) -> Optional[dict]:
-    """Ruft vollständige Vulnerability-Details von der OSV-API ab."""
+    """Fetch full vulnerability details from the OSV API."""
     try:
         resp = requests.get(f"{OSV_VULN_URL}/{vuln_id}", timeout=15)
         resp.raise_for_status()
@@ -508,7 +627,7 @@ def fetch_vuln_details(vuln_id: str) -> Optional[dict]:
 
 
 def enrich_vulnerabilities(vulns_per_dep: list[list[dict]]) -> list[list[dict]]:
-    """Reichert Batch-Ergebnisse mit vollen Details an."""
+    """Enrich batch results with full details."""
     enriched: list[list[dict]] = []
     for dep_vulns in vulns_per_dep:
         enriched_list: list[dict] = []
@@ -524,9 +643,9 @@ def enrich_vulnerabilities(vulns_per_dep: list[list[dict]]) -> list[list[dict]]:
     return enriched
 
 
-# ── Vulnerabilities parsen ──────────────────────────────────────────
+# ── Vulnerability parsing ──────────────────────────────────────────
 def _extract_severity(vuln: dict) -> str:
-    """Extrahiert den Schweregrad aus einer OSV-Vulnerability."""
+    """Extract severity level from an OSV vulnerability."""
     severity_entries = vuln.get("severity", [])
     for s in severity_entries:
         score_str = s.get("score", "")
@@ -540,10 +659,10 @@ def _extract_severity(vuln: dict) -> str:
 
 
 def _compute_cvss_score(vuln: dict, severity_str: str) -> float:
-    """Holt den offiziellen CVSS-Score von der GitHub Advisory API."""
+    """Fetch the official CVSS score from the GitHub Advisory API."""
     vuln_id = vuln.get("id", "")
 
-    # 1. GHSA-ID ermitteln
+    # 1. Determine GHSA ID
     ghsa_id = vuln_id if vuln_id.startswith("GHSA-") else ""
     if not ghsa_id:
         for alias in vuln.get("aliases", []):
@@ -556,7 +675,7 @@ def _compute_cvss_score(vuln: dict, severity_str: str) -> float:
         if api_score is not None:
             return api_score
 
-    # 2. Fallback: Severity-Label
+    # 2. Fallback: Severity label
     db_severity = vuln.get("database_specific", {}).get("severity", "").upper()
     if db_severity in SEVERITY_LABEL_SCORES:
         return SEVERITY_LABEL_SCORES[db_severity]
@@ -570,7 +689,7 @@ def _compute_cvss_score(vuln: dict, severity_str: str) -> float:
 
 
 def _extract_fixed_version(affected: dict) -> str:
-    """Ermittelt die erste fixe Version aus affected-Ranges."""
+    """Determine the first fixed version from affected ranges."""
     for rng in affected.get("ranges", []):
         for event in rng.get("events", []):
             if "fixed" in event:
@@ -579,7 +698,7 @@ def _extract_fixed_version(affected: dict) -> str:
 
 
 def parse_vulnerabilities(dep: Dependency, vulns: list[dict]) -> list[Vulnerability]:
-    """Konvertiert rohe OSV-Einträge in Vulnerability-Objekte."""
+    """Convert raw OSV entries to Vulnerability objects."""
     results: list[Vulnerability] = []
     for v in vulns:
         vuln_id = v.get("id", "?")
@@ -619,7 +738,7 @@ def parse_vulnerabilities(dep: Dependency, vulns: list[dict]) -> list[Vulnerabil
 
 
 def parse_github_advisory(dep: Dependency, advisory: dict) -> Optional[Vulnerability]:
-    """Konvertiert ein GitHub Advisory in ein Vulnerability-Objekt."""
+    """Convert a GitHub Advisory into a Vulnerability object."""
     ghsa_id = advisory.get("ghsa_id", "")
     if not ghsa_id:
         return None
@@ -657,9 +776,9 @@ def parse_github_advisory(dep: Dependency, advisory: dict) -> Optional[Vulnerabi
     )
 
 
-# ── Report-Generierung ──────────────────────────────────────────────
+# ── Report generation ──────────────────────────────────────────────
 def generate_markdown_report(result: ScanResult) -> str:
-    """Erzeugt einen Markdown-Report aus dem Scan-Ergebnis."""
+    """Generate a Markdown report from the scan result."""
     lines: list[str] = []
     lines.append("# CVE-Scan Report – schunk_force_torque_sensor")
     lines.append("")
@@ -773,7 +892,7 @@ def generate_markdown_report(result: ScanResult) -> str:
 
 
 def generate_alert_body(result: ScanResult) -> str:
-    """Erzeugt den Body für den High-Severity-Alert."""
+    """Generate the body for the high-severity alert."""
     high = [v for v in result.vulnerabilities if v.cvss_score >= CVSS_HIGH_THRESHOLD]
     lines: list[str] = []
     lines.append("CVE-Alert: Kritische Schwachstellen in schunk_force_torque_sensor")
@@ -811,7 +930,7 @@ def generate_alert_body(result: ScanResult) -> str:
 
 
 def write_alert_output(result: ScanResult, report_dir: Path) -> None:
-    """Schreibt Alert-Dateien für GitHub Actions."""
+    """Write alert files for GitHub Actions."""
     report_dir.mkdir(parents=True, exist_ok=True)
     alert_flag_path = report_dir / "alert_high_severity.txt"
 
@@ -839,7 +958,7 @@ def write_alert_output(result: ScanResult, report_dir: Path) -> None:
 
 
 def save_reports(result: ScanResult, report_dir: Path) -> tuple[Path, Path]:
-    """Speichert JSON- und Markdown-Reports."""
+    """Save JSON and Markdown reports."""
     report_dir.mkdir(parents=True, exist_ok=True)
 
     json_path = report_dir / "cve_report.json"
@@ -854,9 +973,9 @@ def save_reports(result: ScanResult, report_dir: Path) -> tuple[Path, Path]:
     return json_path, md_path
 
 
-# ── Hauptlogik ───────────────────────────────────────────────────────
+# ── Main logic ───────────────────────────────────────────────────────
 def run_scan() -> ScanResult:
-    """Führt den vollständigen CVE-Scan durch."""
+    """Execute the full CVE scan."""
     print("CVE-Scanner gestartet ...")
     print(f"   Repository-Root: {ROOT_DIR}")
     print()
