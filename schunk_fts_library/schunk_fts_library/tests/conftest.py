@@ -87,3 +87,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         print(f"Sensor used: {config.sensor_ip}")
         print(f"Port used: {config.sensor_port}")
         print("======================\n")
+    if hasattr(config, "sensor_pair"):
+        sensor_1, sensor_2 = config.sensor_pair
+        print("\n=== Sensor Pair Summary ===")
+        print(f"Sensor pair kind: {config.sensor_pair_kind}")
+        print(f"Sensor 1: {sensor_1[0]}:{sensor_1[1]}")
+        print(f"Sensor 2: {sensor_2[0]}:{sensor_2[1]}")
+        print("===========================\n")

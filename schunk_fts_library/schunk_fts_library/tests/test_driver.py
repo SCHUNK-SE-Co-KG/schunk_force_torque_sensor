@@ -344,6 +344,57 @@ def test_driver_supports_sampling_at_different_rates(sensor):
         _reset_sensor_to_default_output_rate(HOST, PORT)
 
 
+def _wait_for_sample(driver, timeout_sec=2.0):
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        sample = driver.sample()
+        if sample is not None:
+            return sample
+    return None
+
+
+def test_driver_supports_two_sensors_streaming_simultaneously(
+    sensor_pair, unused_udp_port_factory
+):
+    sensor_1, sensor_2 = sensor_pair
+    streaming_port_1 = unused_udp_port_factory()
+    streaming_port_2 = unused_udp_port_factory()
+    while streaming_port_2 == streaming_port_1:
+        streaming_port_2 = unused_udp_port_factory()
+
+    driver_1 = Driver(
+        host=sensor_1[0],
+        port=sensor_1[1],
+        streaming_port=streaming_port_1,
+    )
+    driver_2 = Driver(
+        host=sensor_2[0],
+        port=sensor_2[1],
+        streaming_port=streaming_port_2,
+    )
+    driver_1.timeout_sec = 2.0
+    driver_2.timeout_sec = 2.0
+
+    try:
+        assert driver_1.streaming_on(timeout_sec=2.0, auto_reconnect=False)
+        assert driver_2.streaming_on(timeout_sec=2.0, auto_reconnect=False)
+
+        assert driver_1.get_udp_destination_port() == streaming_port_1
+        assert driver_2.get_udp_destination_port() == streaming_port_2
+
+        sample_1 = _wait_for_sample(driver_1)
+        sample_2 = _wait_for_sample(driver_2)
+
+        assert sample_1 is not None
+        assert sample_2 is not None
+        assert driver_1.stream.accepted_packet_count > 0
+        assert driver_2.stream.accepted_packet_count > 0
+    finally:
+        driver_1.streaming_off()
+        driver_2.streaming_off()
+        time.sleep(0.1)
+
+
 def test_driver_achieves_requested_output_rates(sensor):
     HOST, PORT = sensor
     try:

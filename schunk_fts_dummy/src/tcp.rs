@@ -8,8 +8,9 @@ use tokio::net::TcpListener;
 pub async fn handle_requests(
     output_rate: OutputRateState,
     udp_destination_port: UdpDestinationPortState,
+    bind_addr: &str,
 ) -> io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:8082").await?;
+    let listener = TcpListener::bind(bind_addr).await?;
 
     loop {
         let (socket, addr) = listener.accept().await?;

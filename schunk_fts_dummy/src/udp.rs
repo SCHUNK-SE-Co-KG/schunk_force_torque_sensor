@@ -8,6 +8,7 @@ use tokio::net::UdpSocket;
 pub async fn stream_ft_data(
     output_rate: OutputRateState,
     udp_destination_port: UdpDestinationPortState,
+    target_host: String,
 ) {
     let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
 
@@ -36,12 +37,9 @@ pub async fn stream_ft_data(
         buf.put_u8(packet_id);
         put_samples(&mut buf, mode, elapsed, f);
 
-        let target: SocketAddr = format!(
-            "127.0.0.1:{}",
-            udp_destination_port.get()
-        )
-        .parse()
-        .unwrap();
+        let target: SocketAddr = format!("{}:{}", target_host, udp_destination_port.get())
+            .parse()
+            .unwrap();
         let _ = socket.send_to(&buf, &target).await;
         packet_id = packet_id.wrapping_add(1);
 
