@@ -13,9 +13,10 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 # --------------------------------------------------------------------------------
-from schunk_fts_library.driver import Driver
+from schunk_fts_library.driver import DEFAULT_STREAMING_PORT, Driver
 from schunk_fts_library.utility import GetParameterResponse, SetParameterResponse
 import pytest
+import time
 
 
 def test_driver_offers_getting_parameters(sensor):
@@ -52,3 +53,29 @@ def test_driver_offers_setting_parameters(sensor):
     driver = Driver(host=HOST, port=wrong_port)
     response = driver.set_parameter(value=expected_value, index=param)
     assert response == SetParameterResponse()
+
+
+def test_driver_sets_udp_destination_port_and_receives_stream(sensor, unused_udp_port):
+    HOST, PORT = sensor
+    if (HOST, PORT) != ("127.0.0.1", 8082):
+        pytest.skip("UDP destination port test runs against the dummy sensor only.")
+
+    driver = Driver(host=HOST, port=PORT, streaming_port=unused_udp_port)
+    reset_driver = Driver(host=HOST, port=PORT)
+
+    try:
+        response = driver.set_udp_destination_port(unused_udp_port)
+        assert response.error_code == "00"
+        assert driver.get_udp_destination_port() == unused_udp_port
+
+        assert driver.streaming_on(timeout_sec=1.0, auto_reconnect=False)
+        deadline = time.time() + 1.0
+        sample = None
+        while time.time() < deadline and sample is None:
+            sample = driver.sample()
+            time.sleep(0.01)
+        assert sample is not None
+    finally:
+        driver.streaming_off()
+        reset_driver.set_udp_destination_port(DEFAULT_STREAMING_PORT)
+        reset_driver.connection.close()

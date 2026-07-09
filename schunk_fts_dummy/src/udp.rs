@@ -1,12 +1,15 @@
 use crate::output_rate::{OutputRateMode, OutputRateState};
+use crate::udp_destination_port::UdpDestinationPortState;
 use bytes::{BufMut, BytesMut};
 use std::net::SocketAddr;
 use std::time::Instant;
 use tokio::net::UdpSocket;
 
-pub async fn stream_ft_data(output_rate: OutputRateState) {
+pub async fn stream_ft_data(
+    output_rate: OutputRateState,
+    udp_destination_port: UdpDestinationPortState,
+) {
     let socket = UdpSocket::bind("0.0.0.0:0").await.unwrap();
-    let target: SocketAddr = "127.0.0.1:54843".parse().unwrap();
 
     let sync: u16 = 0xFFFF;
     let mut counter: u16 = 0;
@@ -33,6 +36,12 @@ pub async fn stream_ft_data(output_rate: OutputRateState) {
         buf.put_u8(packet_id);
         put_samples(&mut buf, mode, elapsed, f);
 
+        let target: SocketAddr = format!(
+            "127.0.0.1:{}",
+            udp_destination_port.get()
+        )
+        .parse()
+        .unwrap();
         let _ = socket.send_to(&buf, &target).await;
         packet_id = packet_id.wrapping_add(1);
 

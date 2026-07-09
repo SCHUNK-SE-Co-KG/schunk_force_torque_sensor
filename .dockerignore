@@ -1,0 +1,5 @@
+.git
+__pycache__
+.pytest_cache
+.mypy_cache
+schunk_fts_dummy/target

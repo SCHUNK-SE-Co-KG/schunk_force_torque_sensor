@@ -21,7 +21,7 @@ Expected output:
 SCHUNK Force-Torque Sensor Dummy
 Listening on:
   TCP: 127.0.0.1:8082 (commands)
-  UDP: 127.0.0.1:52964 -> client:54843 (data stream)
+  UDP: 127.0.0.1:52964 -> client:54843 by default (data stream)
 ```
 
 ## Differences from Real Sensor
@@ -35,3 +35,5 @@ Listening on:
 | UDP output rate | 1000, 500, 250, 100, 500_16 packaged mode | 1000, 500, 250, 100, 500_16 packaged mode |
 
 The dummy implements `output_rate_udp_ethernet` at parameter `0x1020/0`. Enum values `0`, `1`, `2`, `3`, and `10` select 1000, 500, 250, 100, and 500_16 respectively. The 500_16 mode sends UDP packets at 500 Hz with 16 sequential measurements per packet. The ROS driver publishes those packaged UDP packets as one batch topic message per packet.
+
+The dummy also implements `udp_destination_port` at parameter `0x1033/0`. The default is `54843`; writes to this parameter change the UDP target port used by the dummy stream.

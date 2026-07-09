@@ -61,16 +61,16 @@ def start_workspace_dummy() -> subprocess.Popen | None:
     if not dummy_dir.exists():
         return None
 
-    if not dummy_binary.exists():
-        cargo = shutil.which("cargo")
-        if cargo is None:
-            return None
+    cargo = shutil.which("cargo")
+    if cargo is not None:
         subprocess.run(
             [cargo, "build", "--quiet"],
             cwd=dummy_dir,
             check=True,
             timeout=120,
         )
+    elif not dummy_binary.exists():
+        return None
 
     process = subprocess.Popen(
         [dummy_binary],

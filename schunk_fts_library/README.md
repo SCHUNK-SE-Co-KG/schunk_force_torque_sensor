@@ -40,3 +40,5 @@ driver.streaming_off()
 ```
 
 `output_rate="500_16"` selects the sensor's 500 Hz UDP packaged mode. Each UDP packet contains 16 sequential measurements, `sample()` returns those measurements one at a time, and `sample_batch()` returns the 16-measurement packet batch.
+
+`streaming_port` is also written to the sensor as UDP destination port parameter `0x1033/0` before streaming starts. Use a unique port for each sensor when running multiple plain-Ethernet sensors.

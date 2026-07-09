@@ -13,7 +13,12 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 # --------------------------------------------------------------------------------
-from schunk_fts_library.driver import Driver, OUTPUT_RATE_TO_MODE
+from schunk_fts_library.driver import (
+    DEFAULT_STREAMING_PORT,
+    Driver,
+    OUTPUT_RATE_TO_MODE,
+    _udp_destination_port_to_parameter_value,
+)
 from schunk_fts_library.utility import Connection
 import time
 import pytest
@@ -52,6 +57,23 @@ def test_driver_accepts_supported_output_rates(
 def test_driver_rejects_unsupported_output_rates(output_rate):
     with pytest.raises(ValueError, match="Unsupported output_rate"):
         Driver(output_rate=output_rate)
+
+
+@pytest.mark.parametrize(
+    ("port", "expected_value"),
+    [
+        (DEFAULT_STREAMING_PORT, "d63b"),
+        (60000, "ea60"),
+    ],
+)
+def test_udp_destination_port_parameter_encoding(port, expected_value):
+    assert _udp_destination_port_to_parameter_value(port) == expected_value
+
+
+@pytest.mark.parametrize("port", [0, 65535, -1, "54843"])
+def test_udp_destination_port_rejects_invalid_values(port):
+    with pytest.raises(ValueError, match="UDP destination port"):
+        _udp_destination_port_to_parameter_value(port)
 
 
 def test_driver_configures_output_rate_parameter(monkeypatch):

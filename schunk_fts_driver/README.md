@@ -8,6 +8,7 @@ ROS2 lifecycle node for SCHUNK force-torque sensors. Wraps `schunk_fts_library` 
 # Launch driver
 ros2 launch schunk_fts_driver driver.launch.py  # Default: 192.168.0.100
 ros2 launch schunk_fts_driver driver.launch.py host:=192.168.1.50  # Custom IP (set via SCHUNK Control Center)
+ros2 launch schunk_fts_driver driver.launch.py host:=192.168.1.50 streaming_port:=54844  # Change the UDP receive port
 ros2 launch schunk_fts_driver driver.launch.py host:=192.168.1.50 output_rate:=500_16
 
 # Activate
@@ -75,3 +76,5 @@ ros2 launch schunk_fts_driver driver.launch.py host:=192.168.0.100 port:=82 stre
 Supported `output_rate` values are `1000`, `500`, `250`, `100`, and `500_16`. The default is `1000`.
 
 Changing `output_rate` can change the `/schunk/fts/data` message type. The normal modes (`1000`, `500`, `250`, `100`) publish `geometry_msgs/WrenchStamped`. In `500_16` mode, the sensor sends 500 UDP packets per second and each packet carries 16 sequential measurements, so the driver publishes `schunk_fts_interfaces/WrenchStampedBatch` at 500 Hz with timestamps spread across the packet period.
+
+`streaming_port` is the driver's local UDP receive port. Change it by passing a different value on the launch command, for example `streaming_port:=54844`. It is written to the sensor as UDP destination port parameter `0x1033/0` during lifecycle configure. Set a distinct `streaming_port` for each sensor instance.

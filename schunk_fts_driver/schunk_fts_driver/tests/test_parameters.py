@@ -15,9 +15,11 @@
 # --------------------------------------------------------------------------------
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter as RclpyParameter
 from rcl_interfaces.srv import GetParameters, SetParameters, ListParameters
 from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
 from .conftest import service_is_ready
+from schunk_fts_driver import driver as driver_module
 
 
 DRIVER_PARAMETERS = [
@@ -83,6 +85,26 @@ def test_driver_has_expected_parameters_after_startup(driver, sensor):
     for param, expected in zip(default_parameters, future.result().values):
         assert param.value == expected
     node.destroy_node()
+
+
+def test_sensor_driver_factory_uses_current_streaming_port(ros2):
+    node = driver_module.Driver("test_configure_streaming_port")
+    try:
+        node.set_parameters(
+            [
+                RclpyParameter(
+                    "streaming_port",
+                    RclpyParameter.Type.INTEGER,
+                    60000,
+                )
+            ]
+        )
+
+        sensor = node._make_sensor_driver()
+
+        assert sensor.streaming_port == 60000
+    finally:
+        node.destroy_node()
 
 
 def test_driver_supports_setting_parameters(driver):
