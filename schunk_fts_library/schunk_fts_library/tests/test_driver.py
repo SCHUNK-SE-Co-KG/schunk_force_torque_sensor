@@ -235,22 +235,28 @@ def test_driver_timeouts_when_streaming_fails():
         assert not driver.streaming_on(timeout_sec=timeout)
 
 
-def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
+def test_driver_supports_sampling_force_torque_data(
+    sensor, send_messages, unused_udp_port
+):
     HOST, PORT = sensor
-    test_port = 8001
     driver = Driver(
         host=HOST,
         port=PORT,
-        streaming_port=test_port,
+        streaming_port=unused_udp_port,
         streaming_source_host="127.0.0.1",
     )
+    driver.timeout_sec = 2.0
 
     # Not streaming
     assert driver.sample() is None
 
     # Stream a specific data point and check
     # that we sample that.
-    assert driver.streaming_on()
+    assert driver.streaming_on(timeout_sec=2.0, auto_reconnect=False)
+    # Avoid racing the dummy sensor's normal UDP stream against the injected packet.
+    driver.stop_udp_stream()
+    time.sleep(0.1)
+    driver.clear_samples()
     data = {
         "sync": b"\xFF\xFF",
         "counter": 42,
@@ -280,12 +286,20 @@ def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
         data["tz"],
     )
 
-    send_messages(test_port, [packet])
-    time.sleep(0.1)  # allow driver to read from socket
+    sender = send_messages(unused_udp_port, [packet])
+    sender.join(timeout=1.0)
+    assert not sender.is_alive()
 
     try:
-        result = driver.sample()
+        result = None
+        deadline = time.time() + 1.0
+        while time.time() < deadline:
+            result = driver.sample()
+            if result is not None and result["counter"] == data["counter"]:
+                break
+
         assert result is not None
+        assert result["counter"] == data["counter"]
         assert result["id"] == data["id"]
         assert result["status_bits"] == data["status_bits"]
         assert pytest.approx(result["fx"]) == data["fx"]
