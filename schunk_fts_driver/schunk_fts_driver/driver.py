@@ -21,6 +21,7 @@ from rclpy.executors import MultiThreadedExecutor, ExternalShutdownException
 from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import WrenchStamped
 from diagnostic_msgs.msg import DiagnosticStatus
+from rclpy.time import Time
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from schunk_fts_library.driver import Driver as SensorDriver
 from schunk_fts_library.utility import FTData, FTSample
@@ -105,8 +106,8 @@ class Driver(Node):
         self.select_tool_setting_service: Service | None = None
         self.select_noise_filter_service: Service | None = None
 
-        self._last_state_level = None
-        self._base_stamp_ros = None
+        self._last_state_level: bytes | None = None
+        self._base_stamp_ros: Time | None = None
         self._base_stamp_ns: int = 0
         self._last_counter: int = -1
         self._base_counter: int = -1

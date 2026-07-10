@@ -135,7 +135,7 @@ def _configured_sensor_pair() -> tuple[tuple[str, int], tuple[str, int]] | None:
     port_1 = os.getenv("FTS_PORT_1")
     host_2 = os.getenv("FTS_HOST_2")
     port_2 = os.getenv("FTS_PORT_2")
-    if not all((host_1, port_1, host_2, port_2)):
+    if host_1 is None or port_1 is None or host_2 is None or port_2 is None:
         return None
     return (host_1, int(port_1)), (host_2, int(port_2))
 

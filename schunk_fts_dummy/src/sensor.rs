@@ -399,11 +399,7 @@ mod tests {
     async fn test_sensor_sets_udp_destination_port_parameter() {
         let (mut client, server) = duplex(1024);
         let port_state = UdpDestinationPortState::default();
-        let mut sensor = Sensor::with_state(
-            server,
-            OutputRateState::default(),
-            port_state.clone(),
-        );
+        let mut sensor = Sensor::with_state(server, OutputRateState::default(), port_state.clone());
 
         let param_index = 0x1033;
         let requested_port = 60000;
@@ -439,18 +435,17 @@ mod tests {
 
         assert_eq!(response[0], 0xf0);
         assert_eq!(response[1], 0x00);
-        assert_eq!(u16::from_le_bytes([response[5], response[6]]), requested_port);
+        assert_eq!(
+            u16::from_le_bytes([response[5], response[6]]),
+            requested_port
+        );
     }
 
     #[tokio::test]
     async fn test_sensor_rejects_invalid_udp_destination_port_parameter() {
         let (mut client, server) = duplex(1024);
         let port_state = UdpDestinationPortState::default();
-        let mut sensor = Sensor::with_state(
-            server,
-            OutputRateState::default(),
-            port_state.clone(),
-        );
+        let mut sensor = Sensor::with_state(server, OutputRateState::default(), port_state.clone());
 
         let param_index = 0x1033;
 

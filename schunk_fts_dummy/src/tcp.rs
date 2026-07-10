@@ -17,8 +17,7 @@ pub async fn handle_requests(
         let output_rate = output_rate.clone();
         let udp_destination_port = udp_destination_port.clone();
         tokio::spawn(async move {
-            let mut sensor =
-                Sensor::with_state(socket, output_rate, udp_destination_port);
+            let mut sensor = Sensor::with_state(socket, output_rate, udp_destination_port);
             let mut counter: u16 = 1;
             loop {
                 match sensor.read().await {

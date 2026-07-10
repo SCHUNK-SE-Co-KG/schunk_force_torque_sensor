@@ -1,8 +1,8 @@
 mod output_rate;
 mod sensor;
 mod tcp;
-mod udp_destination_port;
 mod udp;
+mod udp_destination_port;
 use std::env;
 use tokio::io;
 
@@ -15,8 +15,8 @@ fn tcp_bind_addr() -> String {
         return addr;
     }
 
-    let host = env::var("SCHUNK_FTS_DUMMY_TCP_HOST")
-        .unwrap_or_else(|_| DEFAULT_TCP_HOST.to_string());
+    let host =
+        env::var("SCHUNK_FTS_DUMMY_TCP_HOST").unwrap_or_else(|_| DEFAULT_TCP_HOST.to_string());
     let port = env::var("SCHUNK_FTS_DUMMY_TCP_PORT")
         .ok()
         .and_then(|port| port.parse::<u16>().ok())
