@@ -58,5 +58,6 @@ SCHUNK_FTS_DUMMY_TCP_ADDR=127.0.0.1:8083 cargo run
 
 Parameter reads use command `0xF0` and return the same wire-format values as the
 sensor: the product name (`0x0001/0`) is `KMS`, while output-rate reads reflect
-the current dummy state. Unsupported reads return the firmware's `0x13` (index
+the current dummy state. The firmware-version parameter at `0x1002/1` returns
+`2.3.0` as an ASCII value. Unsupported reads return the firmware's `0x13` (index
 does not exist) error.
