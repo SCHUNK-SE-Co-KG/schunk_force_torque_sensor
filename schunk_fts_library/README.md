@@ -24,6 +24,11 @@ import time
 # Create driver. Supported output rates: 1000, 500, 250, 100, 500_16.
 driver = Driver(host="192.168.0.100", port=82, streaming_port=54843, output_rate=1000)
 
+# Read a parameter. Values are returned as wire-format hex strings.
+parameter = driver.get_parameter(index="0001", subindex="00")
+if parameter.error_code == "00":
+    print(parameter.param_value)
+
 # Start streaming with auto-reconnect
 driver.streaming_on()
 time.sleep(0.1)

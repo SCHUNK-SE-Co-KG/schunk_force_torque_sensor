@@ -34,6 +34,7 @@ import time
 from std_srvs.srv import Trigger
 
 from schunk_fts_interfaces.srv import (  # type: ignore [attr-defined]
+    GetParameter,
     SendCommand,
     SetParameter,
     SelectToolSetting,
@@ -101,6 +102,7 @@ class Driver(Node):
         self.stop_event: Event = Event()
 
         self.send_command_service: Service | None = None
+        self.get_parameter_service: Service | None = None
         self.set_parameter_service: Service | None = None
         self.tare_service: Service | None = None
         self.reset_tare_service: Service | None = None
@@ -281,6 +283,12 @@ class Driver(Node):
             self._send_command_callback,
             callback_group=self.service_callback_group,
         )
+        self.get_parameter_service = self.create_service(
+            GetParameter,
+            "~/get_parameter",
+            self._get_parameter_callback,
+            callback_group=self.service_callback_group,
+        )
         self.set_parameter_service = self.create_service(
             SetParameter,
             "~/set_parameter",
@@ -337,6 +345,9 @@ class Driver(Node):
         if self.send_command_service:
             self.destroy_service(self.send_command_service)
             self.send_command_service = None
+        if self.get_parameter_service:
+            self.destroy_service(self.get_parameter_service)
+            self.get_parameter_service = None
         if self.set_parameter_service:
             self.destroy_service(self.set_parameter_service)
             self.set_parameter_service = None
@@ -569,6 +580,45 @@ class Driver(Node):
                 f"An exception occurred during command execution: {str(e)}"
             )
             self.get_logger().error(response.message)
+
+        return response
+
+    def _get_parameter_callback(
+        self, request: GetParameter.Request, response: GetParameter.Response
+    ) -> GetParameter.Response:
+        self.get_logger().info(
+            f"Received GetParameter request: "
+            f"index='{request.param_index}', subindex='{request.param_subindex}'"
+        )
+        try:
+            get_param_response = self.sensor.get_parameter(
+                index=request.param_index,
+                subindex=request.param_subindex,
+            )
+            error_code = get_param_response.error_code
+
+            if error_code == "00":
+                response.success = True
+                response.param_value = get_param_response.param_value
+                response.error_message = ""
+                self.get_logger().info("GetParameter successful.")
+            else:
+                response.success = False
+                response.param_value = ""
+                response.error_message = ERROR_CODE_MAP.get(
+                    error_code, f"Unknown Error Code: {error_code}"
+                )
+                self.get_logger().error(
+                    f"GetParameter failed: {response.error_message}"
+                )
+
+        except Exception as e:
+            response.success = False
+            response.param_value = ""
+            response.error_message = (
+                f"An exception occurred during parameter reading: {str(e)}"
+            )
+            self.get_logger().error(response.error_message)
 
         return response
 

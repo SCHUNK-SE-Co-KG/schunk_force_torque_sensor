@@ -15,6 +15,7 @@ rosidl_generate_interfaces(
   ${PROJECT_NAME}
     msg/WrenchStampedBatch.msg
     srv/SendCommand.srv
+    srv/GetParameter.srv
     srv/SetParameter.srv
     srv/SelectToolSetting.srv
     srv/SelectNoiseFilter.srv

@@ -124,6 +124,9 @@ ros2 service call /schunk/fts/select_tool_setting schunk_fts_interfaces/srv/Sele
 # Set noise filter (0=none, 1=2x, 2=4x, 3=8x, 4=16x)
 ros2 service call /schunk/fts/select_noise_filter schunk_fts_interfaces/srv/SelectNoiseFilter '{filter_number: 2}'
 
+# Read a parameter (advanced; value is returned as a hex string)
+ros2 service call /schunk/fts/get_parameter schunk_fts_interfaces/srv/GetParameter '{param_index: "0001", param_subindex: "00"}'
+
 # Lifecycle control
 ros2 lifecycle set /schunk/fts configure
 ros2 lifecycle set /schunk/fts activate
@@ -162,6 +165,7 @@ A C++ subscriber is recommended as Python subscribers may have worse performance
 | `/schunk/fts/select_tool_setting` | `schunk_fts_interfaces/SelectToolSetting` | Select tool configuration (0-3) |
 | `/schunk/fts/select_noise_filter` | `schunk_fts_interfaces/SelectNoiseFilter` | Select noise filter (0-4) |
 | `/schunk/fts/send_command` | `schunk_fts_interfaces/SendCommand` | Send raw command (advanced) |
+| `/schunk/fts/get_parameter` | `schunk_fts_interfaces/GetParameter` | Read sensor parameter (advanced) |
 | `/schunk/fts/set_parameter` | `schunk_fts_interfaces/SetParameter` | Set sensor parameter (advanced) |
 
 ## Multiple Sensors

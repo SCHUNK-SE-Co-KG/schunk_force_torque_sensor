@@ -21,6 +21,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy
 from lifecycle_msgs.msg import Transition
 from std_srvs.srv import Trigger
 from schunk_fts_interfaces.srv import (  # type: ignore [attr-defined]
+    GetParameter,
     SendCommand,
     SelectToolSetting,
     SelectNoiseFilter,
@@ -86,6 +87,41 @@ def test_reset_tare_service(service_client_node):
     assert result is not None
     assert result.success is True
     assert result.message == ""
+
+
+def test_get_parameter_service(service_client_node):
+    """Test reading a parameter through the ROS service and dummy sensor."""
+    cli = service_client_node.create_client(GetParameter, "/schunk/fts/get_parameter")
+    assert cli.wait_for_service(timeout_sec=2.0)
+
+    req = GetParameter.Request()
+    req.param_index = "0001"
+    req.param_subindex = "00"
+    result = call_service(service_client_node, cli, req)
+
+    assert result is not None
+    assert result.success is True
+    assert result.param_value in ("465453", "4b4d53")
+    assert result.error_message == ""
+
+
+def test_get_parameter_service_reports_sensor_error(service_client_node, sensor):
+    """Test that the service maps a documented parameter error to its message."""
+    if sensor != ("127.0.0.1", 8082):
+        pytest.skip("Unknown-parameter behavior is deterministic on the dummy only.")
+
+    cli = service_client_node.create_client(GetParameter, "/schunk/fts/get_parameter")
+    assert cli.wait_for_service(timeout_sec=2.0)
+
+    req = GetParameter.Request()
+    req.param_index = "ffff"
+    req.param_subindex = "00"
+    result = call_service(service_client_node, cli, req)
+
+    assert result is not None
+    assert result.success is False
+    assert result.param_value == ""
+    assert result.error_message == "Index Does not Exist"
 
 
 def test_send_command_service_success(service_client_node):
