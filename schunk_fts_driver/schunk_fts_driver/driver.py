@@ -89,6 +89,7 @@ class Driver(Node):
         self.declare_parameter("streaming_port", 54843)
         self.declare_parameter("output_rate", "1000")
 
+        output_rate = str(self.get_parameter("output_rate").value)
         self.sensor: SensorDriver = self._make_sensor_driver()
         self.ft_data_publisher: Publisher | None = None
         self.ft_state_publisher: Publisher | None = None
