@@ -21,6 +21,7 @@ from rclpy.executors import MultiThreadedExecutor, ExternalShutdownException
 from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import WrenchStamped
 from diagnostic_msgs.msg import DiagnosticStatus
+from rclpy.time import Time
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from schunk_fts_library.driver import Driver as SensorDriver
 from schunk_fts_library.utility import FTData, FTSample
@@ -89,12 +90,7 @@ class Driver(Node):
         self.declare_parameter("output_rate", "1000")
 
         output_rate = str(self.get_parameter("output_rate").value)
-        self.sensor: SensorDriver = SensorDriver(
-            host=self.get_parameter("host").value,
-            port=self.get_parameter("port").value,
-            streaming_port=self.get_parameter("streaming_port").value,
-            output_rate=output_rate,
-        )
+        self.sensor: SensorDriver = self._make_sensor_driver()
         self.ft_data_publisher: Publisher | None = None
         self.ft_state_publisher: Publisher | None = None
         self._ft_data_publisher_handle: Publisher | None = None
@@ -111,8 +107,8 @@ class Driver(Node):
         self.select_tool_setting_service: Service | None = None
         self.select_noise_filter_service: Service | None = None
 
-        self._last_state_level = None
-        self._base_stamp_ros = None
+        self._last_state_level: bytes | None = None
+        self._base_stamp_ros: Time | None = None
         self._base_stamp_ns: int = 0
         self._last_counter: int = -1
         self._base_counter: int = -1
@@ -120,6 +116,15 @@ class Driver(Node):
         self._connection_lost: bool = False
         self._last_skip_warning_time: float = 0.0
         self._publish_sample_batches: bool = output_rate == "500_16"
+
+    def _make_sensor_driver(self) -> SensorDriver:
+        output_rate = str(self.get_parameter("output_rate").value)
+        return SensorDriver(
+            host=self.get_parameter("host").value,
+            port=self.get_parameter("port").value,
+            streaming_port=self.get_parameter("streaming_port").value,
+            output_rate=output_rate,
+        )
 
     @staticmethod
     def _packet_gap(previous_counter: int, counter: int) -> int:
@@ -221,6 +226,7 @@ class Driver(Node):
 
     def on_configure(self, state: State) -> TransitionCallbackReturn:
         self.get_logger().debug("on_configure() is called.")
+        self.sensor = self._make_sensor_driver()
         self.sensor.streaming_on()
         time.sleep(0.1)  # Wait for the sensor to start streaming
         level, message = self._get_status_level()

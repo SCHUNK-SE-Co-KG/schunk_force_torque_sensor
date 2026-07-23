@@ -1,4 +1,5 @@
 use crate::output_rate::OutputRateState;
+use crate::udp_destination_port::UdpDestinationPortState;
 use bytes::{BufMut, BytesMut};
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -6,6 +7,7 @@ pub struct Sensor<T> {
     stream: T,
     valid_commands: Vec<u8>,
     output_rate: OutputRateState,
+    udp_destination_port: UdpDestinationPortState,
 }
 
 impl<T> Sensor<T>
@@ -14,14 +16,23 @@ where
 {
     #[cfg(test)]
     pub fn new(stream: T) -> Self {
-        Self::with_output_rate(stream, OutputRateState::default())
+        Self::with_state(
+            stream,
+            OutputRateState::default(),
+            UdpDestinationPortState::default(),
+        )
     }
 
-    pub fn with_output_rate(stream: T, output_rate: OutputRateState) -> Self {
+    pub fn with_state(
+        stream: T,
+        output_rate: OutputRateState,
+        udp_destination_port: UdpDestinationPortState,
+    ) -> Self {
         Self {
             stream,
             valid_commands: vec![0x10, 0x11, 0x12, 0x13, 0x20, 0x30, 0x31, 0x40, 0x41],
             output_rate,
+            udp_destination_port,
         }
     }
 
@@ -46,8 +57,11 @@ where
             let param_index = u16::from_le_bytes([msg[7], msg[8]]);
             let param_subindex = msg[9];
             let output_rate_value = [self.output_rate.get().enum_value];
+            let udp_destination_port_value = self.udp_destination_port.get().to_le_bytes();
             let param_value: &[u8] = if param_index == 0x1020 && param_subindex == 0x00 {
                 &output_rate_value
+            } else if param_index == 0x1033 && param_subindex == 0x00 {
+                &udp_destination_port_value
             } else {
                 "KMS".as_bytes()
             };
@@ -72,6 +86,17 @@ where
                     0x00
                 } else {
                     0x16
+                }
+            } else if param_index == 0x1033 && param_subindex == 0x00 {
+                if msg.len() < 12 {
+                    0x15
+                } else {
+                    let port = u16::from_le_bytes([msg[10], msg[11]]);
+                    if self.udp_destination_port.set(port) {
+                        0x00
+                    } else {
+                        0x16
+                    }
                 }
             } else {
                 0x00
@@ -341,6 +366,131 @@ mod tests {
 
         assert_eq!(response[1], 0x00);
         assert_eq!(response[5], 0x01);
+    }
+
+    #[tokio::test]
+    async fn test_sensor_gets_default_udp_destination_port_parameter() {
+        let (mut client, server) = duplex(1024);
+        let mut sensor = Sensor::new(server);
+
+        let param_index = 0x1033;
+        let param_subindex = 0x00;
+
+        let mut msg = BytesMut::with_capacity(10);
+        msg.put_bytes(0xff, 2);
+        msg.put_u16_le(0x0001);
+        msg.put_u16_le(0x0004);
+        msg.put_u8(0xf0);
+        msg.put_u16_le(param_index);
+        msg.put_u8(param_subindex);
+        client.write_all(&msg).await.unwrap();
+
+        let bytes = sensor.read().await.unwrap();
+        let response = sensor.process(&bytes).await.unwrap().to_vec();
+
+        assert_eq!(response[0], 0xf0);
+        assert_eq!(response[1], 0x00);
+        assert_eq!(u16::from_le_bytes([response[2], response[3]]), param_index);
+        assert_eq!(response[4], param_subindex);
+        assert_eq!(u16::from_le_bytes([response[5], response[6]]), 54843);
+    }
+
+    #[tokio::test]
+    async fn test_sensor_sets_udp_destination_port_parameter() {
+        let (mut client, server) = duplex(1024);
+        let port_state = UdpDestinationPortState::default();
+        let mut sensor = Sensor::with_state(server, OutputRateState::default(), port_state.clone());
+
+        let param_index = 0x1033;
+        let requested_port = 60000;
+
+        let mut set_msg = BytesMut::with_capacity(12);
+        set_msg.put_bytes(0xff, 2);
+        set_msg.put_u16_le(0x0001);
+        set_msg.put_u16_le(0x0006);
+        set_msg.put_u8(0xf1);
+        set_msg.put_u16_le(param_index);
+        set_msg.put_u8(0x00);
+        set_msg.put_u16_le(requested_port);
+        client.write_all(&set_msg).await.unwrap();
+
+        let bytes = sensor.read().await.unwrap();
+        let response = sensor.process(&bytes).await.unwrap().to_vec();
+
+        assert_eq!(response[0], 0xf1);
+        assert_eq!(response[1], 0x00);
+        assert_eq!(port_state.get(), requested_port);
+
+        let mut get_msg = BytesMut::with_capacity(10);
+        get_msg.put_bytes(0xff, 2);
+        get_msg.put_u16_le(0x0002);
+        get_msg.put_u16_le(0x0004);
+        get_msg.put_u8(0xf0);
+        get_msg.put_u16_le(param_index);
+        get_msg.put_u8(0x00);
+        client.write_all(&get_msg).await.unwrap();
+
+        let bytes = sensor.read().await.unwrap();
+        let response = sensor.process(&bytes).await.unwrap().to_vec();
+
+        assert_eq!(response[0], 0xf0);
+        assert_eq!(response[1], 0x00);
+        assert_eq!(
+            u16::from_le_bytes([response[5], response[6]]),
+            requested_port
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sensor_rejects_invalid_udp_destination_port_parameter() {
+        let (mut client, server) = duplex(1024);
+        let port_state = UdpDestinationPortState::default();
+        let mut sensor = Sensor::with_state(server, OutputRateState::default(), port_state.clone());
+
+        let param_index = 0x1033;
+
+        let mut valid_msg = BytesMut::with_capacity(12);
+        valid_msg.put_bytes(0xff, 2);
+        valid_msg.put_u16_le(0x0001);
+        valid_msg.put_u16_le(0x0006);
+        valid_msg.put_u8(0xf1);
+        valid_msg.put_u16_le(param_index);
+        valid_msg.put_u8(0x00);
+        valid_msg.put_u16_le(60000);
+        client.write_all(&valid_msg).await.unwrap();
+        let bytes = sensor.read().await.unwrap();
+        let response = sensor.process(&bytes).await.unwrap().to_vec();
+        assert_eq!(response[1], 0x00);
+
+        let mut too_short_msg = BytesMut::with_capacity(11);
+        too_short_msg.put_bytes(0xff, 2);
+        too_short_msg.put_u16_le(0x0002);
+        too_short_msg.put_u16_le(0x0005);
+        too_short_msg.put_u8(0xf1);
+        too_short_msg.put_u16_le(param_index);
+        too_short_msg.put_u8(0x00);
+        too_short_msg.put_u8(0x01);
+        client.write_all(&too_short_msg).await.unwrap();
+        let bytes = sensor.read().await.unwrap();
+        let response = sensor.process(&bytes).await.unwrap().to_vec();
+        assert_eq!(response[1], 0x15);
+        assert_eq!(port_state.get(), 60000);
+
+        for (counter, invalid_port) in [(3, 0), (4, 65535)] {
+            let mut invalid_msg = BytesMut::with_capacity(12);
+            invalid_msg.put_bytes(0xff, 2);
+            invalid_msg.put_u16_le(counter);
+            invalid_msg.put_u16_le(0x0006);
+            invalid_msg.put_u8(0xf1);
+            invalid_msg.put_u16_le(param_index);
+            invalid_msg.put_u8(0x00);
+            invalid_msg.put_u16_le(invalid_port);
+            client.write_all(&invalid_msg).await.unwrap();
+            let bytes = sensor.read().await.unwrap();
+            let response = sensor.process(&bytes).await.unwrap().to_vec();
+            assert_eq!(response[1], 0x16);
+            assert_eq!(port_state.get(), 60000);
+        }
     }
 
     #[tokio::test]

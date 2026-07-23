@@ -37,6 +37,11 @@ import struct
 OUTPUT_RATE_PARAMETER_INDEX = "1020"
 OUTPUT_RATE_PARAMETER_SUBINDEX = "00"
 SUPPORTED_OUTPUT_RATES = ("1000", "500", "250", "100", "500_16")
+UDP_DESTINATION_PORT_PARAMETER_INDEX = "1033"
+UDP_DESTINATION_PORT_PARAMETER_SUBINDEX = "00"
+DEFAULT_STREAMING_PORT = 54843
+MIN_UDP_DESTINATION_PORT = 1
+MAX_UDP_DESTINATION_PORT = 65534
 
 
 @dataclass(frozen=True)
@@ -74,6 +79,17 @@ def _normalize_output_rate(output_rate: int | str) -> str:
             f"Supported output rates are: {supported_rates}"
         )
     return normalized
+
+
+def _udp_destination_port_to_parameter_value(port: int) -> str:
+    if not isinstance(port, int):
+        raise ValueError("UDP destination port must be an integer")
+    if not MIN_UDP_DESTINATION_PORT <= port <= MAX_UDP_DESTINATION_PORT:
+        raise ValueError(
+            "UDP destination port must be between "
+            f"{MIN_UDP_DESTINATION_PORT} and {MAX_UDP_DESTINATION_PORT}"
+        )
+    return f"{port:04x}"
 
 
 @dataclass
@@ -119,7 +135,7 @@ class Driver(object):
         self,
         host: str = "192.168.0.100",
         port: int = 82,
-        streaming_port: int = 54843,
+        streaming_port: int = DEFAULT_STREAMING_PORT,
         output_rate: int | str = 1000,
         streaming_source_host: str | None = None,
     ) -> None:
@@ -198,6 +214,11 @@ class Driver(object):
                 self.auto_reconnect = False
                 self.connection.close()
                 return False
+            if self.set_udp_destination_port(self.streaming_port).error_code != "00":
+                self.is_streaming = False
+                self.auto_reconnect = False
+                self.connection.close()
+                return False
             self.start_udp_stream()
             return True
 
@@ -270,6 +291,24 @@ class Driver(object):
             subindex=OUTPUT_RATE_PARAMETER_SUBINDEX,
         )
         return response.error_code == "00"
+
+    def set_udp_destination_port(self, port: int) -> SetParameterResponse:
+        return self.set_parameter(
+            value=_udp_destination_port_to_parameter_value(port),
+            index=UDP_DESTINATION_PORT_PARAMETER_INDEX,
+            subindex=UDP_DESTINATION_PORT_PARAMETER_SUBINDEX,
+        )
+
+    def get_udp_destination_port(self) -> int | None:
+        response = self.get_parameter(
+            index=UDP_DESTINATION_PORT_PARAMETER_INDEX,
+            subindex=UDP_DESTINATION_PORT_PARAMETER_SUBINDEX,
+        )
+        if response.error_code != "00":
+            return None
+        if len(response.param_value) != 4:
+            return None
+        return int.from_bytes(bytes.fromhex(response.param_value), byteorder="little")
 
     def run_command(self, command: str) -> CommandResponse:
         req = CommandRequest()
@@ -400,6 +439,14 @@ class Driver(object):
                 with self._lock:
                     if not self._configure_output_rate():
                         print("Failed to configure sensor output rate")
+                        self.connection.close()
+                        return False
+
+                    if (
+                        self.set_udp_destination_port(self.streaming_port).error_code
+                        != "00"
+                    ):
+                        print("Failed to configure sensor UDP destination port")
                         self.connection.close()
                         return False
 

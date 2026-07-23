@@ -25,6 +25,7 @@ A ROS2 driver for SCHUNK force-torque sensors with configurable UDP data streami
 ## Features
 
 - Configurable force-torque data streaming via UDP: 1000, 500, 250, 100, or 500_16 packaged mode
+- Configurable UDP destination port for multi-sensor setups
 - Automatic reconnection e.g. on power loss
 - ROS2 lifecycle node with controlled state transitions
 - Tare operations and tool settings (0-3)
@@ -139,6 +140,8 @@ A C++ subscriber is recommended as Python subscribers may have worse performance
 
 **Output rate**: The Python library accepts `output_rate` values `1000`, `500`, `250`, `100`, and `500_16`. The `500_16` setting uses the sensor's 500 Hz UDP packaged mode with 16 sequential measurements per UDP packet. In ROS, this setting changes the `/schunk/fts/data` message type from `geometry_msgs/WrenchStamped` to `schunk_fts_interfaces/WrenchStampedBatch`.
 
+**Streaming port**: `streaming_port` is the local UDP receive port and is written to the sensor as firmware parameter `0x1033/0` during startup. Use a unique `streaming_port` per sensor.
+
 **Wrong data**: Tare the sensor, check tool setting, verify status topic
 
 **Build fails**: Source ROS2, run `rosdep install`, try clean build
@@ -163,8 +166,8 @@ A C++ subscriber is recommended as Python subscribers may have worse performance
 
 ## Multiple Sensors
 
-Right now it is not possible to operate multiple sensors at the same time using UDP as the streaming port can not be changed on a firmware level.
-If you have a multi-sensor application consider using a sensor version for industrial ethernet like EtherCat or PROFINET
+For multiple plain-Ethernet sensors, assign each driver instance a unique `streaming_port`. The driver configures the sensor's UDP destination port before starting the UDP stream.
+For high-determinism multi-sensor applications, consider an industrial Ethernet variant such as EtherCAT or PROFINET.
 
 ## License
 

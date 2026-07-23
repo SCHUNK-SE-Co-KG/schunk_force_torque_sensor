@@ -1,17 +1,23 @@
 use crate::output_rate::OutputRateState;
 use crate::sensor::Sensor;
+use crate::udp_destination_port::UdpDestinationPortState;
 use bytes::{BufMut, BytesMut};
 use tokio::io;
 use tokio::net::TcpListener;
 
-pub async fn handle_requests(output_rate: OutputRateState) -> io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:8082").await?;
+pub async fn handle_requests(
+    output_rate: OutputRateState,
+    udp_destination_port: UdpDestinationPortState,
+    bind_addr: &str,
+) -> io::Result<()> {
+    let listener = TcpListener::bind(bind_addr).await?;
 
     loop {
         let (socket, addr) = listener.accept().await?;
         let output_rate = output_rate.clone();
+        let udp_destination_port = udp_destination_port.clone();
         tokio::spawn(async move {
-            let mut sensor = Sensor::with_output_rate(socket, output_rate);
+            let mut sensor = Sensor::with_state(socket, output_rate, udp_destination_port);
             let mut counter: u16 = 1;
             loop {
                 match sensor.read().await {

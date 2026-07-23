@@ -13,7 +13,12 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 # --------------------------------------------------------------------------------
-from schunk_fts_library.driver import Driver, OUTPUT_RATE_TO_MODE
+from schunk_fts_library.driver import (
+    DEFAULT_STREAMING_PORT,
+    Driver,
+    OUTPUT_RATE_TO_MODE,
+    _udp_destination_port_to_parameter_value,
+)
 from schunk_fts_library.utility import Connection
 import time
 import pytest
@@ -52,6 +57,23 @@ def test_driver_accepts_supported_output_rates(
 def test_driver_rejects_unsupported_output_rates(output_rate):
     with pytest.raises(ValueError, match="Unsupported output_rate"):
         Driver(output_rate=output_rate)
+
+
+@pytest.mark.parametrize(
+    ("port", "expected_value"),
+    [
+        (DEFAULT_STREAMING_PORT, "d63b"),
+        (60000, "ea60"),
+    ],
+)
+def test_udp_destination_port_parameter_encoding(port, expected_value):
+    assert _udp_destination_port_to_parameter_value(port) == expected_value
+
+
+@pytest.mark.parametrize("port", [0, 65535, -1, "54843"])
+def test_udp_destination_port_rejects_invalid_values(port):
+    with pytest.raises(ValueError, match="UDP destination port"):
+        _udp_destination_port_to_parameter_value(port)
 
 
 def test_driver_configures_output_rate_parameter(monkeypatch):
@@ -213,22 +235,28 @@ def test_driver_timeouts_when_streaming_fails():
         assert not driver.streaming_on(timeout_sec=timeout)
 
 
-def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
+def test_driver_supports_sampling_force_torque_data(
+    sensor, send_messages, unused_udp_port
+):
     HOST, PORT = sensor
-    test_port = 8001
     driver = Driver(
         host=HOST,
         port=PORT,
-        streaming_port=test_port,
+        streaming_port=unused_udp_port,
         streaming_source_host="127.0.0.1",
     )
+    driver.timeout_sec = 2.0
 
     # Not streaming
     assert driver.sample() is None
 
     # Stream a specific data point and check
     # that we sample that.
-    assert driver.streaming_on()
+    assert driver.streaming_on(timeout_sec=2.0, auto_reconnect=False)
+    # Avoid racing the dummy sensor's normal UDP stream against the injected packet.
+    driver.stop_udp_stream()
+    time.sleep(0.1)
+    driver.clear_samples()
     data = {
         "sync": b"\xFF\xFF",
         "counter": 42,
@@ -258,12 +286,20 @@ def test_driver_supports_sampling_force_torque_data(sensor, send_messages):
         data["tz"],
     )
 
-    send_messages(test_port, [packet])
-    time.sleep(0.1)  # allow driver to read from socket
+    sender = send_messages(unused_udp_port, [packet])
+    sender.join(timeout=1.0)
+    assert not sender.is_alive()
 
     try:
-        result = driver.sample()
+        result = None
+        deadline = time.time() + 1.0
+        while time.time() < deadline:
+            result = driver.sample()
+            if result is not None and result["counter"] == data["counter"]:
+                break
+
         assert result is not None
+        assert result["counter"] == data["counter"]
         assert result["id"] == data["id"]
         assert result["status_bits"] == data["status_bits"]
         assert pytest.approx(result["fx"]) == data["fx"]
@@ -306,6 +342,57 @@ def test_driver_supports_sampling_at_different_rates(sensor):
                 time.sleep(0.1)
     finally:
         _reset_sensor_to_default_output_rate(HOST, PORT)
+
+
+def _wait_for_sample(driver, timeout_sec=2.0):
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        sample = driver.sample()
+        if sample is not None:
+            return sample
+    return None
+
+
+def test_driver_supports_two_sensors_streaming_simultaneously(
+    sensor_pair, unused_udp_port_factory
+):
+    sensor_1, sensor_2 = sensor_pair
+    streaming_port_1 = unused_udp_port_factory()
+    streaming_port_2 = unused_udp_port_factory()
+    while streaming_port_2 == streaming_port_1:
+        streaming_port_2 = unused_udp_port_factory()
+
+    driver_1 = Driver(
+        host=sensor_1[0],
+        port=sensor_1[1],
+        streaming_port=streaming_port_1,
+    )
+    driver_2 = Driver(
+        host=sensor_2[0],
+        port=sensor_2[1],
+        streaming_port=streaming_port_2,
+    )
+    driver_1.timeout_sec = 2.0
+    driver_2.timeout_sec = 2.0
+
+    try:
+        assert driver_1.streaming_on(timeout_sec=2.0, auto_reconnect=False)
+        assert driver_2.streaming_on(timeout_sec=2.0, auto_reconnect=False)
+
+        assert driver_1.get_udp_destination_port() == streaming_port_1
+        assert driver_2.get_udp_destination_port() == streaming_port_2
+
+        sample_1 = _wait_for_sample(driver_1)
+        sample_2 = _wait_for_sample(driver_2)
+
+        assert sample_1 is not None
+        assert sample_2 is not None
+        assert driver_1.stream.accepted_packet_count > 0
+        assert driver_2.stream.accepted_packet_count > 0
+    finally:
+        driver_1.streaming_off()
+        driver_2.streaming_off()
+        time.sleep(0.1)
 
 
 def test_driver_achieves_requested_output_rates(sensor):

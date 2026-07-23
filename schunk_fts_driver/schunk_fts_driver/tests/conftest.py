@@ -20,6 +20,7 @@ import rclpy
 import signal
 import threading
 import time
+from types import ModuleType
 from launch import LaunchDescription  # type: ignore [attr-defined]
 from launch.actions import IncludeLaunchDescription
 from launch.substitutions import PathJoinSubstitution
@@ -27,10 +28,13 @@ from launch_ros.substitutions import FindPackageShare
 from lifecycle_msgs.srv import ChangeState, GetState
 from rclpy.node import Node
 
+launch_pytest_module: ModuleType | None = None
 try:
-    import launch_pytest
+    import launch_pytest as _launch_pytest
 except ModuleNotFoundError:
-    launch_pytest = None
+    pass
+else:
+    launch_pytest_module = _launch_pytest
 
 
 def _test_timeout_sec():
@@ -84,13 +88,13 @@ def ros2():
     rclpy.shutdown()
 
 
-if launch_pytest is not None:
+if launch_pytest_module is not None:
 
     @pytest.fixture(scope="function")
     def output_rate():
         return "1000"
 
-    @launch_pytest.fixture(scope="function")
+    @launch_pytest_module.fixture(scope="function")
     def driver(request, ros2, sensor, output_rate):
         host, port = sensor
 
@@ -108,7 +112,7 @@ if launch_pytest is not None:
                 "output_rate": str(output_rate),
             }.items(),
         )
-        return LaunchDescription([setup, launch_pytest.actions.ReadyToTest()])
+        return LaunchDescription([setup, launch_pytest_module.actions.ReadyToTest()])
 
 else:
 
