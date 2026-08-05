@@ -29,7 +29,7 @@ setup(
         "pathspec==1.1.1",
         "platformdirs==4.10.0",
         "pluggy==1.6.0",
-        "pytest==9.0.2",
+        "pytest==9.0.3",
         "pytest-repeat==0.9.4",
         "PyYAML==6.0.3",
         "requests==2.34.2",
