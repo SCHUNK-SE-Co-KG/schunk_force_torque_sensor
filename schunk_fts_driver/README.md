@@ -60,6 +60,7 @@ ros2 service call /schunk/fts/select_noise_filter schunk_fts_interfaces/srv/Sele
 
 # Advanced (see Interface Control Document)
 ros2 service call /schunk/fts/send_command schunk_fts_interfaces/srv/SendCommand '{command_id: "12"}'
+ros2 service call /schunk/fts/get_parameter schunk_fts_interfaces/srv/GetParameter '{param_index: "0001", param_subindex: "00"}'
 ros2 service call /schunk/fts/set_parameter schunk_fts_interfaces/srv/SetParameter '{param_index: "0040", param_subindex: "00", param_value: "01"}'
 ```
 

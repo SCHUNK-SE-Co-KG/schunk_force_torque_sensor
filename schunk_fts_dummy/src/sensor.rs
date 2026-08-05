@@ -53,17 +53,17 @@ where
 
         // Getting parameters
         if command_id == 0xf0 {
-            let error_code = 0x00;
             let param_index = u16::from_le_bytes([msg[7], msg[8]]);
             let param_subindex = msg[9];
             let output_rate_value = [self.output_rate.get().enum_value];
             let udp_destination_port_value = self.udp_destination_port.get().to_le_bytes();
-            let param_value: &[u8] = if param_index == 0x1020 && param_subindex == 0x00 {
-                &output_rate_value
-            } else if param_index == 0x1033 && param_subindex == 0x00 {
-                &udp_destination_port_value
-            } else {
-                "KMS".as_bytes()
+            let (error_code, param_value): (u8, &[u8]) = match (param_index, param_subindex) {
+                (0x0001, 0x00 | 0x03) => (0x00, "KMS".as_bytes()),
+                (0x1002, 0x01) => (0x00, "2.3.0".as_bytes()),
+                (0x1020, 0x00) => (0x00, &output_rate_value),
+                (0x1033, 0x00) => (0x00, &udp_destination_port_value),
+                (0x0001 | 0x1002 | 0x1020 | 0x1033, _) => (0x14, &[]),
+                _ => (0x13, &[]),
             };
             let mut response = BytesMut::with_capacity(6);
             response.put_u8(command_id);
@@ -243,6 +243,78 @@ mod tests {
         assert_eq!(u16::from_le_bytes([response[2], response[3]]), param_index);
         assert_eq!(response[4], param_subindex);
         assert_eq!(&response.as_slice()[5..], param_value);
+    }
+
+    #[tokio::test]
+    async fn test_sensor_rejects_unknown_parameter_reads() {
+        let (mut client, server) = duplex(1024);
+        let mut sensor = Sensor::new(server);
+
+        let mut msg = BytesMut::with_capacity(10);
+        msg.put_bytes(0xff, 2);
+        msg.put_u16_le(0x0001);
+        msg.put_u16_le(0x0004);
+        msg.put_u8(0xf0);
+        msg.put_u16_le(0xffff);
+        msg.put_u8(0x00);
+        client.write_all(&msg).await.unwrap();
+
+        let bytes = sensor.read().await.unwrap();
+        let response = sensor.process(&bytes).await.unwrap().to_vec();
+
+        assert_eq!(response[0], 0xf0);
+        assert_eq!(response[1], 0x13);
+        assert_eq!(u16::from_le_bytes([response[2], response[3]]), 0xffff);
+        assert_eq!(response[4], 0x00);
+        assert_eq!(response.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_sensor_rejects_unknown_parameter_subindices() {
+        let (mut client, server) = duplex(1024);
+        let mut sensor = Sensor::new(server);
+
+        let mut msg = BytesMut::with_capacity(10);
+        msg.put_bytes(0xff, 2);
+        msg.put_u16_le(0x0001);
+        msg.put_u16_le(0x0004);
+        msg.put_u8(0xf0);
+        msg.put_u16_le(0x1020);
+        msg.put_u8(0x01);
+        client.write_all(&msg).await.unwrap();
+
+        let bytes = sensor.read().await.unwrap();
+        let response = sensor.process(&bytes).await.unwrap().to_vec();
+
+        assert_eq!(response[0], 0xf0);
+        assert_eq!(response[1], 0x14);
+        assert_eq!(u16::from_le_bytes([response[2], response[3]]), 0x1020);
+        assert_eq!(response[4], 0x01);
+        assert_eq!(response.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_sensor_returns_firmware_version() {
+        let (mut client, server) = duplex(1024);
+        let mut sensor = Sensor::new(server);
+
+        let mut msg = BytesMut::with_capacity(10);
+        msg.put_bytes(0xff, 2);
+        msg.put_u16_le(0x0001);
+        msg.put_u16_le(0x0004);
+        msg.put_u8(0xf0);
+        msg.put_u16_le(0x1002);
+        msg.put_u8(0x01);
+        client.write_all(&msg).await.unwrap();
+
+        let bytes = sensor.read().await.unwrap();
+        let response = sensor.process(&bytes).await.unwrap().to_vec();
+
+        assert_eq!(response[0], 0xf0);
+        assert_eq!(response[1], 0x00);
+        assert_eq!(u16::from_le_bytes([response[2], response[3]]), 0x1002);
+        assert_eq!(response[4], 0x01);
+        assert_eq!(&response[5..], b"2.3.0");
     }
 
     #[tokio::test]
